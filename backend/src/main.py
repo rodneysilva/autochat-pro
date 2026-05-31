@@ -46,6 +46,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     try:
         await MongoDB.connect()
         logger.info("✅ MongoDB conectado")
+
+        # Criar índices
+        from src.infrastructure.database.indexes import create_all_indexes
+        await create_all_indexes(MongoDB.get_database())
+        logger.info("✅ Índices criados")
+
+        # Executar seeds se necessário
+        from src.infrastructure.database.seeds import run_seed_if_empty
+        await run_seed_if_empty(MongoDB.get_database())
+
     except Exception as e:
         logger.error(f"❌ Erro ao conectar MongoDB: {e}")
 
