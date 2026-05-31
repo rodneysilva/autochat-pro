@@ -7,6 +7,7 @@ import ConfirmEmailPage from './presentation/pages/ConfirmEmailPage'
 import ForgotPasswordPage from './presentation/pages/ForgotPasswordPage'
 import ResetPasswordPage from './presentation/pages/ResetPasswordPage'
 import ConfirmPhonePage from './presentation/pages/ConfirmPhonePage'
+import AddBotPage from './presentation/pages/AddBotPage'
 import MainLayout from './presentation/layouts/MainLayout'
 import { ProtectedRoute } from './presentation/components/ProtectedRoute'
 
@@ -30,6 +31,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/add-bot" element={<AddBotPage />} />
         <Route path="/confirm-email" element={<ConfirmEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
