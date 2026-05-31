@@ -1,0 +1,13 @@
+# Aliases do sistema
+# Para emails internos do container
+
+postmaster: root
+root: admin@rodney.website
+daemon: root
+sys: root
+mailer-daemon: postmaster
+bin: root
+admin: root
+nobody: root
+webmaster: admin@rodney.website
+abuse: admin@rodney.website

@@ -1,0 +1,158 @@
+# ==========================================
+# AutoChat Pro - Docker Compose
+# ==========================================
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # MongoDB
+  # ==========================================
+  mongodb:
+    image: mongo:7.0
+    container_name: autochat-mongodb
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: autochat_pro
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - autochat-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # Redis
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: autochat-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - autochat-network
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # Postfix SMTP Server
+  # ==========================================
+  postfix:
+    build:
+      context: ./backend/postfix
+      dockerfile: Dockerfile
+    container_name: autochat-postfix
+    restart: unless-stopped
+    ports:
+      - "25:25"
+      - "587:587"
+    environment:
+      - MAIL_DOMAIN=rodney.website
+      - MAIL_HOSTNAME=mail.rodney.website
+    volumes:
+      - postfix_data:/var/spool/postfix
+      - postfix_certs:/etc/ssl
+    networks:
+      - autochat-network
+
+  # ==========================================
+  # Backend API
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: autochat-backend
+    restart: unless-stopped
+    ports:
+      - "8100:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - MONGODB_URL=mongodb://admin:admin123@mongodb:27017/?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+    networks:
+      - autochat-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postfix:
+        condition: service_started
+
+  # ==========================================
+  # Frontend
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: autochat-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.vite
+    networks:
+      - autochat-network
+    depends_on:
+      - backend
+
+  # ==========================================
+  # Evolution API (WhatsApp)
+  # ==========================================
+  # Opcional: Descomente para usar Evolution API
+  # evolution-api:
+  #   image: evolution/api:latest
+  #   container_name: autochat-whatsapp
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - SERVER_PORT=8080
+  #     - AUTHENTICATION_TYPE=apikey
+  #     - API_KEY=your-api-key-here
+  #   volumes:
+  #     - evolution_data:/evolution/store
+  #   networks:
+  #     - autochat-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  redis_data:
+    driver: local
+  postfix_data:
+    driver: local
+  postfix_certs:
+    driver: local
+  # evolution_data:
+  #   driver: local
+
+networks:
+  autochat-network:
+    driver: bridge

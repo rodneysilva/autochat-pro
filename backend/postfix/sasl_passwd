@@ -1,0 +1,5 @@
+# SASL password for relay (opcional - usar SMTP relay externo)
+# Formato: [relay_host]:port username:password
+# Exemplo: [smtp.gmail.com]:587 seuemail@gmailua.com:suasenha
+
+# Para uso local sem relay, deixe em branco ou remova

@@ -1,0 +1,62 @@
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+
+type Theme = 'light' | 'dark'
+
+interface ThemeContextType {
+  theme: Theme
+  toggleTheme: () => void
+  setTheme: (theme: Theme) => void
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+
+const THEME_STORAGE_KEY = 'autochat-theme'
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(() => {
+    // Get theme from localStorage or system preference
+    const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
+    if (stored) return stored
+
+    // Check system preference
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark'
+    }
+    return 'light'
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+
+    // Remove old theme class
+    root.classList.remove('light', 'dark')
+
+    // Add new theme class
+    root.classList.add(theme)
+
+    // Save to localStorage
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme)
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  )
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext)
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider')
+  }
+  return context
+}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bem-vindo</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            color: white;
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .features {
+            background: #f9fafb;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .feature {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-right: 15px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Bem-vindo ao {{app_name}}!</h1>
+        </div>
+        <div class="content">
+            <h2>Olá, {{user_name}}!</h2>
+            <p>Sua conta foi confirmada com sucesso. Estamos muito felizes em ter você conosco!</p>
+            <p>O {{app_name}} é a plataforma completa para automação de atendimento via WhatsApp e Telegram.</p>
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">💬</div>
+                    <div>
+                        <strong>WhatsApp & Telegram</strong><br>
+                        <small>Automatize seu atendimento nas plataformas mais populares</small>
+                    </div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🤖</div>
+                    <div>
+                        <strong>IA Inteligente</strong><br>
+                        <small>Atendimento com inteligência artificial</small>
+                    </div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📊</div>
+                    <div>
+                        <strong>Analytics</strong><br>
+                        <small>Acompanhe métricas em tempo real</small>
+                    </div>
+                </div>
+            </div>
+            <p>Para começar, acesse seu dashboard e configure seu primeiro bot:</p>
+            <center>
+                <a href="{{dashboard_link}}" class="button">Acessar Dashboard</a>
+            </center>
+        </div>
+        <div class="footer">
+            <p>&copy; 2024 {{app_name}}. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>

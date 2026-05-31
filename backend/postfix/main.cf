@@ -1,0 +1,41 @@
+# Configuração Postfix para AutoChat Pro
+# Domínio: rodney.website
+
+# Configurações básicas
+smtpd_banner = $myhostname ESMTP $mail_name (Ubuntu)
+biff = no
+append_dot_mydomain = no
+readme_directory = no
+
+# TLS parameters
+smtpd_tls_cert_file=/etc/ssl/certs/postfix.pem
+smtpd_tls_key_file=/etc/ssl/private/postfix.key
+smtpd_use_tls=yes
+smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
+smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
+
+# Configurações de rede
+smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
+myhostname = mail.rodney.website
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+mydestination = $myhostname, localhost.$mydomain, localhost
+relayhost =
+mynetworks = 127.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 [::ffff:127.0.0.0]/104 [::1]/128
+mailbox_size_limit = 0
+recipient_delimiter = +
+inet_interfaces = all
+inet_protocols = ipv4
+
+# DKIM
+milter_protocol = 6
+milter_default_action = accept
+smtpd_milters = inet:localhost:12301
+non_smtpd_milters = inet:localhost:12301
+
+# SPF é configurado via DNS, não no Postfix
+# Configurar registro TXT no Cloudflare: v=spf1 mx a ip4:SEU_IP -all
+
+# Tamanho de mensagem
+message_size_limit = 25600000
+mailbox_size_limit = 0

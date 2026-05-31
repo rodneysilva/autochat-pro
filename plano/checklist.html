@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AutoChat Pro - Checklist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            overscroll-behavior: none;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .check-item {
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }
+
+        .check-item:active {
+            transform: scale(0.98);
+        }
+
+        .check-item.checked {
+            background: linear-gradient(90deg, #f0fdf4 0%, #dcfce7 100%);
+        }
+
+        .phase-progress {
+            transition: width 0.5s ease;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 2px;
+        }
+
+        .sidebar {
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.closed {
+            transform: translateX(-100%);
+        }
+
+        .overlay {
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @media (min-width: 1024px) {
+            .sidebar {
+                transform: translateX(0) !important;
+            }
+            .overlay {
+                display: none !important;
+            }
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .card-shadow {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+        }
+
+        .checkbox-custom {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 2px solid #d1d5db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .checkbox-custom.checked {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border-color: #22c55e;
+        }
+
+        .quick-filter-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .quick-filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen pb-16 lg:pb-0">
+    <!-- Header Compacto Mobile -->
+    <header class="gradient-bg text-white sticky top-0 z-50 shadow-lg">
+        <div class="px-4 py-3 lg:px-6 lg:py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <!-- Menu Button (mobile only) -->
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+
+                    <!-- Logo -->
+                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-robot text-lg lg:text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base lg:text-xl font-bold leading-tight">AutoChat Pro</h1>
+                        <p class="text-white/70 text-xs">Checklist de Desenvolvimento</p>
+                    </div>
+                </div>
+
+                <!-- Progress Circle Compacto -->
+                <div class="flex items-center gap-2">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-white/70 text-xs">Progresso</p>
+                        <p class="text-xl font-bold" id="overallProgress">0%</p>
+                    </div>
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center relative">
+                        <svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+                            <circle id="progressCircle" cx="18" cy="18" r="16" fill="none" stroke="white" stroke-width="3"
+                                    stroke-dasharray="100.5" stroke-dashoffset="100.5" class="transition-all duration-500"/>
+                        </svg>
+                        <span id="mobileProgress" class="absolute text-sm font-bold">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Filters Mobile -->
+        <div class="px-4 pb-3 lg:hidden">
+            <div class="flex gap-2 overflow-x-auto scrollbar-hide">
+                <button onclick="filterItems('all')" class="quick-filter-btn active" id="filterAll">
+                    Todos <span id="countAll" class="ml-1 opacity-70">(0)</span>
+                </button>
+                <button onclick="filterItems('pending')" class="quick-filter-btn bg-white/20" id="filterPending">
+                    <i class="far fa-circle mr-1 text-amber-300"></i>
+                    <span id="countPending">0</span>
+                </button>
+                <button onclick="filterItems('completed')" class="quick-filter-btn bg-white/20" id="filterCompleted">
+                    <i class="fas fa-check mr-1 text-emerald-300"></i>
+                    <span id="countCompleted">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div id="sidebarOverlay" class="overlay hidden fixed inset-0 bg-black/50 z-40 lg:hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="sidebar closed fixed left-0 top-0 bottom-0 w-72 max-w-[80vw] bg-white z-50 lg:relative lg:z-0 lg:block lg:w-64 lg:translate-x-0">
+        <div class="h-full flex flex-col">
+            <!-- Sidebar Header -->
+            <div class="p-4 border-b border-gray-100 flex items-center justify-between lg:hidden">
+                <span class="font-semibold text-gray-700">Fases do Projeto</span>
+                <button onclick="toggleSidebar()" class="p-2">
+                    <i class="fas fa-times text-gray-500"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <!-- Filtro Desktop -->
+                <div class="hidden lg:block mb-4">
+                    <h3 class="text-xs font-semibold text-gray-500 mb-3">FILTROS</h3>
+                    <div class="space-y-1">
+                        <button onclick="filterItems('all')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm flex items-center gap-2">
+                            <i class="fas fa-list-check text-gray-400 w-5"></i>
+                            Todos
+                        </button>
+                        <button onclick="filterItems('pending')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm flex items-center gap-2">
+                            <i class="far fa-circle text-amber-400 w-5"></i>
+                            Pendentes
+                        </button>
+                        <button onclick="filterItems('completed')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm flex items-center gap-2">
+                            <i class="fas fa-check-circle text-emerald-400 w-5"></i>
+                            Concluídos
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="hidden lg:block my-4 border-gray-200">
+
+                <h3 class="text-xs font-semibold text-gray-500 mb-3">FASES</h3>
+                <nav class="space-y-1" id="phaseNav">
+                    <!-- Phases inseridas via JS -->
+                </nav>
+            </div>
+
+            <!-- Sidebar Footer -->
+            <div class="p-4 border-t border-gray-100">
+                <button onclick="resetAll()" class="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                    <i class="fas fa-redo"></i>
+                    Reiniciar Tudo
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="lg:ml-64">
+        <div class="p-4 lg:p-6 space-y-4 max-w-5xl" id="mainContent">
+            <!-- Phases inseridas via JS -->
+        </div>
+    </main>
+
+    <!-- Footer Stats Sticky (Mobile) -->
+    <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2 px-4 lg:hidden z-30">
+        <div class="flex items-center justify-around text-sm">
+            <div class="text-center">
+                <div class="flex items-center justify-center gap-1">
+                    <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    <span id="footerCompleted" class="font-semibold">0</span>
+                </div>
+                <p class="text-gray-500 text-xs">Feitos</p>
+            </div>
+            <div class="text-center">
+                <div class="flex items-center justify-center gap-1">
+                    <div class="w-2 h-2 rounded-full bg-amber-400"></div>
+                    <span id="footerPending" class="font-semibold">0</span>
+                </div>
+                <p class="text-gray-500 text-xs">Pendentes</p>
+            </div>
+            <div class="text-center">
+                <p class="font-semibold" id="footerTotal">0</p>
+                <p class="text-gray-500 text-xs">Total</p>
+            </div>
+            <div class="text-center border-l border-gray-200 pl-4">
+                <button onclick="scrollToTop()" class="p-2">
+                    <i class="fas fa-arrow-up text-gray-500"></i>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const phases = [
+            {
+                id: 'phase1',
+                title: 'Fundação',
+                subtitle: 'Semana 1-2',
+                icon: 'fa-hammer',
+                color: 'blue',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b1', text: 'Setup do projeto FastAPI', done: true },
+                            { id: 'b2', text: 'Configuração MongoDB', done: true },
+                            { id: 'b3', text: 'Configuração Redis', done: true },
+                            { id: 'b4', text: 'Estrutura de pastas', done: true },
+                            { id: 'b5', text: 'Pydantic schemas', done: true },
+                            { id: 'b6', text: 'Variáveis ambiente', done: true },
+                            { id: 'b7', text: 'Logging', done: true }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f1', text: 'Setup Vite + React', done: true },
+                            { id: 'f2', text: 'Configuração Tailwind', done: true },
+                            { id: 'f3', text: 'Estrutura de rotas', done: true },
+                            { id: 'f4', text: 'Layout base', done: true },
+                            { id: 'f5', text: 'Sistema de temas', done: true },
+                            { id: 'f6', text: 'Estado global', done: true }
+                        ]
+                    },
+                    {
+                        title: 'DevOps',
+                        items: [
+                            { id: 'd1', text: 'Docker Compose', done: true },
+                            { id: 'd2', text: 'Variáveis ambiente', done: true },
+                            { id: 'd3', text: 'Repositório Git', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase2',
+                title: 'Autenticação',
+                subtitle: 'Semana 3',
+                icon: 'fa-shield-halved',
+                color: 'purple',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b8', text: 'Modelo User no MongoDB', done: true },
+                            { id: 'b9', text: 'Registro de usuário', done: true },
+                            { id: 'b10', text: 'Login JWT', done: true },
+                            { id: 'b11', text: 'Confirmação por email', done: true },
+                            { id: 'b12', text: 'Confirmação por WhatsApp', done: true },
+                            { id: 'b13', text: 'Recuperação de senha', done: true },
+                            { id: 'b14', text: 'Middleware auth', done: true },
+                            { id: 'b15', text: 'Refresh token', done: true }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f7', text: 'Página de Login', done: true },
+                            { id: 'f8', text: 'Página de Cadastro', done: true },
+                            { id: 'f9', text: 'Confirmação de email', done: true },
+                            { id: 'f10', text: 'Confirmação de telefone', done: true },
+                            { id: 'f11', text: 'Recuperação de senha', done: true },
+                            { id: 'f12', text: 'Protected routes', done: true },
+                            { id: 'f13', text: 'Context auth', done: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase3',
+                title: 'Modelos de Dados',
+                subtitle: 'Semana 4',
+                icon: 'fa-database',
+                color: 'emerald',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b16', text: 'Modelo Plan', done: true },
+                            { id: 'b17', text: 'Modelo Bot', done: true },
+                            { id: 'b18', text: 'Modelo Conversation', done: true },
+                            { id: 'b19', text: 'Modelo Message', done: true },
+                            { id: 'b20', text: 'Modelo Analytics', done: false },
+                            { id: 'b21', text: 'Índices MongoDB', done: false },
+                            { id: 'b22', text: 'Seeds de dados', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f14', text: 'Dashboard home', done: false },
+                            { id: 'f15', text: 'Navigation', done: false },
+                            { id: 'f16', text: 'Sidebar navegação', done: false },
+                            { id: 'f17', text: 'Header perfil', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase4',
+                title: 'Integração WhatsApp',
+                subtitle: 'Semana 5-6',
+                icon: 'fa-brands fa-whatsapp',
+                color: 'green',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b23', text: 'Setup Baileys/Evolution', done: false },
+                            { id: 'b24', text: 'QR Code conexão', done: false },
+                            { id: 'b25', text: 'Recebimento mensagens', done: false },
+                            { id: 'b26', text: 'Envio de mensagens', done: false },
+                            { id: 'b27', text: 'Webhook system', done: false },
+                            { id: 'b28', text: 'Handler desconexão', done: false },
+                            { id: 'b29', text: 'Reconnection logic', done: false },
+                            { id: 'b30', text: 'Upload de mídia', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f18', text: 'Adicionar Bot WhatsApp', done: false },
+                            { id: 'f19', text: 'Display QR Code', done: false },
+                            { id: 'f20', text: 'Status conexão', done: false },
+                            { id: 'f21', text: 'Teste de envio', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase5',
+                title: 'Integração Telegram',
+                subtitle: 'Semana 7',
+                icon: 'fa-brands fa-telegram',
+                color: 'cyan',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b31', text: 'Setup Telegram Bot', done: false },
+                            { id: 'b32', text: 'Webhook Telegram', done: false },
+                            { id: 'b33', text: 'Recebimento mensagens', done: false },
+                            { id: 'b34', text: 'Envio de mensagens', done: false },
+                            { id: 'b35', text: 'Comandos básicos', done: false },
+                            { id: 'b36', text: 'Inline buttons', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f22', text: 'Adicionar Bot Telegram', done: false },
+                            { id: 'f23', text: 'Configuração token', done: false },
+                            { id: 'f24', text: 'Teste de envio', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase6',
+                title: 'Automações',
+                subtitle: 'Semana 8',
+                icon: 'fa-gears',
+                color: 'orange',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b37', text: 'Modelo AutomationRule', done: true },
+                            { id: 'b38', text: 'Keyword matching', done: false },
+                            { id: 'b39', text: 'Respostas dinâmicas', done: false },
+                            { id: 'b40', text: 'Delay configurável', done: false },
+                            { id: 'b41', text: 'Fallback message', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f25', text: 'Editor regras', done: false },
+                            { id: 'f26', text: 'Preview regras', done: false },
+                            { id: 'f27', text: 'Teste regras', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase7',
+                title: 'Integração LLM GLM',
+                subtitle: 'Semana 9',
+                icon: 'fa-brain',
+                color: 'pink',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b42', text: 'Cliente GLM', done: false },
+                            { id: 'b43', text: 'Prompt engineering', done: false },
+                            { id: 'b44', text: 'Contexto conversa', done: false },
+                            { id: 'b45', text: 'Fluxo pedidos', done: false },
+                            { id: 'b46', text: 'Streaming respostas', done: false },
+                            { id: 'b47', text: 'Fallback LLM', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f28', text: 'Config prompt bot', done: false },
+                            { id: 'f29', text: 'Preview chat LLM', done: false },
+                            { id: 'f30', text: 'Config catálogo', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase8',
+                title: 'Chat Tempo Real',
+                subtitle: 'Semana 10',
+                icon: 'fa-comments',
+                color: 'indigo',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b48', text: 'WebSocket', done: false },
+                            { id: 'b49', text: 'Eventos mensagem', done: false },
+                            { id: 'b50', text: 'Histórico conversas', done: false },
+                            { id: 'b51', text: 'Marcação lida', done: false },
+                            { id: 'b52', text: 'Transferência humano', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f31', text: 'Interface chat', done: false },
+                            { id: 'f32', text: 'Input mensagem', done: false },
+                            { id: 'f33', text: 'Indicador digitando', done: false },
+                            { id: 'f34', text: 'Timeline conversas', done: false },
+                            { id: 'f35', text: 'Filtros e busca', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase9',
+                title: 'Planos e Pagamentos',
+                subtitle: 'Semana 11',
+                icon: 'fa-credit-card',
+                color: 'yellow',
+                sections: [
+                    {
+                        title: 'Backend',
+                        items: [
+                            { id: 'b53', text: 'Limites por plano', done: false },
+                            { id: 'b54', text: 'Upgrade/Downgrade', done: false },
+                            { id: 'b55', text: 'Stripe/PagSeguro', done: false },
+                            { id: 'b56', text: 'Webhooks pagamento', done: false },
+                            { id: 'b57', text: 'Trial period', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f36', text: 'Página planos', done: false },
+                            { id: 'f37', text: 'Checkout', done: false },
+                            { id: 'f38', text: 'Gestão assinatura', done: false },
+                            { id: 'f39', text: 'Histórico pagamentos', done: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'phase10',
+                title: 'Onboarding e Admin',
+                subtitle: 'Semana 12',
+                icon: 'fa-graduation-cap',
+                color: 'red',
+                sections: [
+                    {
+                        title: 'Frontend',
+                        items: [
+                            { id: 'f40', text: 'Tour guiado', done: false },
+                            { id: 'f41', text: 'Tooltips helps', done: false },
+                            { id: 'f42', text: 'Modais boas-vindas', done: false },
+                            { id: 'f43', text: 'Checklist configuração', done: false }
+                        ]
+                    },
+                    {
+                        title: 'Admin',
+                        items: [
+                            { id: 'b58', text: 'Dashboard admin', done: false },
+                            { id: 'b59', text: 'Gestão usuários', done: false },
+                            { id: 'b60', text: 'Gestão planos', done: false },
+                            { id: 'b61', text: 'Métricas globais', done: false },
+                            { id: 'b62', text: 'Logs sistema', done: false }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        const colorMap = {
+            blue: { bg: 'bg-blue-500', light: 'bg-blue-50', text: 'text-blue-600' },
+            purple: { bg: 'bg-purple-500', light: 'bg-purple-50', text: 'text-purple-600' },
+            emerald: { bg: 'bg-emerald-500', light: 'bg-emerald-50', text: 'text-emerald-600' },
+            green: { bg: 'bg-green-500', light: 'bg-green-50', text: 'text-green-600' },
+            cyan: { bg: 'bg-cyan-500', light: 'bg-cyan-50', text: 'text-cyan-600' },
+            orange: { bg: 'bg-orange-500', light: 'bg-orange-50', text: 'text-orange-600' },
+            pink: { bg: 'bg-pink-500', light: 'bg-pink-50', text: 'text-pink-600' },
+            indigo: { bg: 'bg-indigo-500', light: 'bg-indigo-50', text: 'text-indigo-600' },
+            yellow: { bg: 'bg-yellow-500', light: 'bg-yellow-50', text: 'text-yellow-600' },
+            red: { bg: 'bg-red-500', light: 'bg-red-50', text: 'text-red-600' }
+        };
+
+        let currentFilter = 'all';
+        let sidebarOpen = false;
+
+        function loadState() {
+            const saved = localStorage.getItem('autochat-checklist-v2');
+            if (saved) {
+                const savedData = JSON.parse(saved);
+                phases.forEach(phase => {
+                    phase.sections.forEach(section => {
+                        section.items.forEach(item => {
+                            if (savedData[item.id] !== undefined) {
+                                item.done = savedData[item.id];
+                            }
+                        });
+                    });
+                });
+            }
+        }
+
+        function saveState() {
+            const state = {};
+            phases.forEach(phase => {
+                phase.sections.forEach(section => {
+                    section.items.forEach(item => {
+                        state[item.id] = item.done;
+                    });
+                });
+            });
+            localStorage.setItem('autochat-checklist-v2', JSON.stringify(state));
+        }
+
+        function toggleSidebar() {
+            sidebarOpen = !sidebarOpen;
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            if (sidebarOpen) {
+                sidebar.classList.remove('closed');
+                overlay.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            } else {
+                sidebar.classList.add('closed');
+                overlay.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        }
+
+        function toggleItem(itemId) {
+            phases.forEach(phase => {
+                phase.sections.forEach(section => {
+                    const item = section.items.find(i => i.id === itemId);
+                    if (item) {
+                        item.done = !item.done;
+                        saveState();
+                        render();
+                    }
+                });
+            });
+        }
+
+        function resetAll() {
+            if (confirm('Tem certeza que deseja reiniciar todo o checklist?')) {
+                phases.forEach(phase => {
+                    phase.sections.forEach(section => {
+                        section.items.forEach(item => {
+                            item.done = false;
+                        });
+                    });
+                });
+                saveState();
+                render();
+            }
+        }
+
+        function filterItems(filter) {
+            currentFilter = filter;
+            render();
+
+            // Atualizar botões de filtro mobile
+            document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('bg-white/20');
+            });
+
+            const activeBtn = document.getElementById(
+                filter === 'all' ? 'filterAll' :
+                filter === 'pending' ? 'filterPending' : 'filterCompleted'
+            );
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                activeBtn.classList.remove('bg-white/20');
+            }
+        }
+
+        function getPhaseStats(phase) {
+            let total = 0;
+            let completed = 0;
+            phase.sections.forEach(section => {
+                section.items.forEach(item => {
+                    total++;
+                    if (item.done) completed++;
+                });
+            });
+            return { total, completed, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
+        }
+
+        function getGlobalStats() {
+            let total = 0;
+            let completed = 0;
+            phases.forEach(phase => {
+                phase.sections.forEach(section => {
+                    section.items.forEach(item => {
+                        total++;
+                        if (item.done) completed++;
+                    });
+                });
+            });
+            return { total, completed, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
+        }
+
+        function renderPhaseNav() {
+            const nav = document.getElementById('phaseNav');
+            nav.innerHTML = phases.map(phase => {
+                const stats = getPhaseStats(phase);
+                const colors = colorMap[phase.color];
+                return `
+                    <a href="#${phase.id}" class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition ${stats.completed === stats.total && stats.total > 0 ? 'bg-emerald-50' : ''}" onclick="closeSidebarOnMobile()">
+                        <div class="w-8 h-8 ${colors.light} rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas ${phase.icon} ${colors.text} text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-700 truncate">${phase.title}</p>
+                            <p class="text-xs text-gray-400">${stats.completed}/${stats.total}</p>
+                        </div>
+                        ${stats.completed === stats.total && stats.total > 0 ? '<i class="fas fa-check text-emerald-500 text-sm"></i>' : ''}
+                    </a>
+                `;
+            }).join('');
+        }
+
+        function renderMainContent() {
+            const main = document.getElementById('mainContent');
+            main.innerHTML = phases.map((phase, index) => {
+                const stats = getPhaseStats(phase);
+                const colors = colorMap[phase.color];
+
+                const sectionsHtml = phase.sections.map(section => {
+                    const itemsHtml = section.items
+                        .filter(item => currentFilter === 'all' ||
+                            (currentFilter === 'completed' && item.done) ||
+                            (currentFilter === 'pending' && !item.done))
+                        .map(item => `
+                            <div class="check-item flex items-start gap-3 p-3 rounded-xl border border-gray-100 cursor-pointer ${item.done ? 'checked' : 'bg-white'} fade-in"
+                                 style="animation-delay: ${Math.random() * 0.1}s"
+                                 onclick="toggleItem('${item.id}')">
+                                <div class="checkbox-custom ${item.done ? 'checked' : ''}">
+                                    ${item.done ? '<i class="fas fa-check text-white text-xs"></i>' : ''}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-sm ${item.done ? 'text-gray-400 line-through' : 'text-gray-700'}">${item.text}</span>
+                                </div>
+                            </div>
+                        `).join('');
+
+                    const visibleItems = section.items.filter(item =>
+                        currentFilter === 'all' ||
+                        (currentFilter === 'completed' && item.done) ||
+                        (currentFilter === 'pending' && !item.done)
+                    );
+
+                    if (visibleItems.length === 0 && currentFilter !== 'all') return '';
+
+                    return `
+                        <div class="bg-gray-50 rounded-xl p-3 lg:p-4">
+                            <h4 class="text-xs lg:text-sm font-semibold text-gray-600 mb-2 lg:mb-3 flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full ${colors.bg}"></span>
+                                ${section.title}
+                            </h4>
+                            <div class="space-y-2">
+                                ${itemsHtml}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const hasVisibleContent = phase.sections.some(section =>
+                    section.items.some(item =>
+                        currentFilter === 'all' ||
+                        (currentFilter === 'completed' && item.done) ||
+                        (currentFilter === 'pending' && !item.done)
+                    )
+                );
+
+                if (!hasVisibleContent && currentFilter !== 'all') return '';
+
+                return `
+                    <div id="${phase.id}" class="bg-white rounded-2xl card-shadow overflow-hidden fade-in">
+                        <div class="p-4 lg:p-6 border-b border-gray-100">
+                            <div class="flex items-center gap-3 lg:gap-4 mb-3">
+                                <div class="w-10 h-10 lg:w-12 lg:h-12 ${colors.bg} rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <i class="fas ${phase.icon} text-white text-base lg:text-lg"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h2 class="text-base lg:text-lg font-bold text-gray-800">FASE ${index + 1}: ${phase.title}</h2>
+                                    <p class="text-xs lg:text-sm text-gray-500">${phase.subtitle}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div class="phase-progress h-full ${colors.bg} rounded-full" style="width: ${stats.progress}%"></div>
+                                </div>
+                                <span class="text-sm font-bold ${colors.text} flex-shrink-0">${stats.progress}%</span>
+                            </div>
+                        </div>
+                        <div class="p-4 lg:p-6 space-y-3 lg:space-y-4">
+                            ${sectionsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            const stats = getGlobalStats();
+
+            // Update progress circle
+            const circle = document.getElementById('progressCircle');
+            const circumference = 100.5;
+            const offset = circumference - (stats.progress / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+
+            // Update progress text
+            document.getElementById('overallProgress').textContent = stats.progress + '%';
+            document.getElementById('mobileProgress').textContent = stats.progress + '%';
+
+            // Update filter counts
+            document.getElementById('countAll').textContent = `(${stats.total})`;
+            document.getElementById('countPending').textContent = stats.total - stats.completed;
+            document.getElementById('countCompleted').textContent = stats.completed;
+
+            // Update footer stats
+            document.getElementById('footerCompleted').textContent = stats.completed;
+            document.getElementById('footerPending').textContent = stats.total - stats.completed;
+            document.getElementById('footerTotal').textContent = stats.total;
+        }
+
+        function closeSidebarOnMobile() {
+            if (window.innerWidth < 1024 && sidebarOpen) {
+                toggleSidebar();
+            }
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function render() {
+            renderPhaseNav();
+            renderMainContent();
+            updateStats();
+        }
+
+        // Initialize
+        loadState();
+        render();
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                if (href && href !== '#') {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        closeSidebarOnMobile();
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        });
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024 && sidebarOpen) {
+                toggleSidebar();
+            }
+        });
+    </script>
+</body>
+</html>
