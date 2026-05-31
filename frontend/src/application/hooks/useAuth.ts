@@ -10,6 +10,18 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores'
 import { authService } from '../../infrastructure/api/auth.service'
 
+export interface RegisterData {
+  email: string
+  password: string
+  name: string
+  phone?: string
+}
+
+export interface AuthResult {
+  success: boolean
+  error?: string
+}
+
 export function useAuth() {
   const navigate = useNavigate()
   const { setAuth, logout: storeLogout, setLoading } = useAuthStore()
@@ -18,10 +30,10 @@ export function useAuth() {
    * Registra um novo usuário.
    */
   const register = useCallback(
-    async (data: { email: string; password: string; name: string; phone?: string }) => {
+    async (data: RegisterData): Promise<AuthResult> => {
       try {
         setLoading(true)
-        await authService.register(data)
+        const registerResponse = await authService.register(data)
 
         // Após registro, fazer login automático
         const loginResponse = await authService.login({
@@ -33,11 +45,11 @@ export function useAuth() {
           {
             id: loginResponse.user.id,
             email: loginResponse.user.email,
-            name: loginResponse.user.name,
+            nome: loginResponse.user.nome || loginResponse.user.name,
             avatar: loginResponse.user.avatar,
-            plan: {
-              type: loginResponse.user.plan_type as 'free' | 'basic' | 'pro',
-              maxBots: loginResponse.user.plan_max_bots,
+            plano: {
+              tipo: loginResponse.user.plano_tipo as 'free' | 'basic' | 'pro',
+              maxBots: loginResponse.user.plano_max_bots,
               maxMessagesPerMonth: 1000, // TODO: obter da API
               expiresAt: null,
             },
@@ -54,7 +66,7 @@ export function useAuth() {
         console.error('Erro no registro:', error)
         return {
           success: false,
-          error: error.response?.data?.erro?.mensagem || 'Erro ao registrar usuário',
+          error: error.response?.data?.erro?.mensagem || error.message || 'Erro ao registrar usuário',
         }
       } finally {
         setLoading(false)
@@ -67,7 +79,7 @@ export function useAuth() {
    * Realiza login.
    */
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string): Promise<AuthResult> => {
       try {
         setLoading(true)
         const response = await authService.login({ email, password })
@@ -76,11 +88,11 @@ export function useAuth() {
           {
             id: response.user.id,
             email: response.user.email,
-            name: response.user.name,
+            nome: response.user.nome || response.user.name,
             avatar: response.user.avatar,
-            plan: {
-              type: response.user.plan_type as 'free' | 'basic' | 'pro',
-              maxBots: response.user.plan_max_bots,
+            plano: {
+              tipo: response.user.plano_tipo as 'free' | 'basic' | 'pro',
+              maxBots: response.user.plano_max_bots,
               maxMessagesPerMonth: 1000,
               expiresAt: null,
             },
@@ -96,7 +108,7 @@ export function useAuth() {
         console.error('Erro no login:', error)
         return {
           success: false,
-          error: error.response?.data?.erro?.mensagem || 'Email ou senha incorretos',
+          error: error.response?.data?.erro?.mensagem || error.message || 'Email ou senha incorretos',
         }
       } finally {
         setLoading(false)

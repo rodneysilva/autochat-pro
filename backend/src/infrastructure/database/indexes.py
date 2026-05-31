@@ -68,8 +68,8 @@ async def create_daily_stats_indexes(database: AsyncIOMotorDatabase) -> None:
     """Cria índices da coleção daily_stats."""
     await database.daily_stats.create_index("bot_id")
     await database.daily_stats.create_index("date")
-    await database.analytics.create_index([("bot_id", 1), ("date", -1)])
-    await database.analytics.create_index([("bot_id", 1), ("date", 1), ("date", -1)])
+    await database.daily_stats.create_index([("bot_id", 1), ("date", -1)])
+    await database.daily_stats.create_index([("bot_id", 1), ("date", 1)])
     logger.info("Índices de daily_stats criados")
 
 

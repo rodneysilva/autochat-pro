@@ -124,7 +124,7 @@ services:
   # Evolution API (WhatsApp)
   # ==========================================
   evolution-api:
-    image: evolution/api:latest
+    image: evoapicloud/evolution-api:latest
     container_name: autochat-evolution
     restart: unless-stopped
     ports:

@@ -5,12 +5,12 @@ Implementa a lógica de negócio para autenticação de usuários,
 incluindo verificação de credenciais e geração de tokens.
 """
 
-from src.domain.entities.user import User
+from src.domain.entities.user import Usuario, StatusUsuario
 from src.domain.repositories.user_repository import UserRepository
 from src.application.dto.auth_dto import LoginRequest, LoginResponse, UserResponse
 from src.application.services.password_service import PasswordService
 from src.application.services.jwt_service import JWTService
-from src.shared.exceptions import ValidationError, UnauthorizedError
+from src.shared.exceptions import ValidationException, InvalidCredentialsException
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -39,8 +39,8 @@ class LoginUseCase:
             Resposta com tokens e dados do usuário.
 
         Raises:
-            ValidationError: Se os dados forem inválidos.
-            UnauthorizedError: Se as credenciais estiverem incorretas.
+            ValidationException: Se os dados forem inválidos.
+            InvalidCredentialsException: Se as credenciais estiverem incorretas.
         """
         logger.info(f"Tentativa de login: {request.email}")
 
@@ -49,31 +49,32 @@ class LoginUseCase:
 
         if not user:
             logger.warning(f"Usuário não encontrado: {request.email}")
-            raise UnauthorizedError("Email ou senha incorretos")
+            raise InvalidCredentialsException()
 
         # Verificar se a conta está ativa
-        if user.status != "active":
+        if user.status != StatusUsuario.ATIVO:
             logger.warning(f"Conta não ativa: {user.email} - {user.status}")
-            raise UnauthorizedError("Esta conta não está ativa")
+            raise InvalidCredentialsException()
 
         # Verificar senha
-        if not PasswordService.verify_password(request.password, user.password_hash):
+        if not PasswordService.verify_password(request.password, user.senha_hash):
             logger.warning(f"Senha incorreta para: {request.email}")
-            raise UnauthorizedError("Email ou senha incorretos")
+            raise InvalidCredentialsException()
 
         logger.info(f"Login bem-sucedido: {user.email}")
 
         # Gerar tokens
-        tokens = JWTService.create_token_pair(user.id)
+        tokens = JWTService.create_token_pair(str(user.id))
 
-        # Atualizar último login (opcional)
-        # await self._repository.update_last_login(user.id)
+        # Atualizar último login
+        user.registrar_login()
+        await self._repository.update(user)
 
         return self._to_response(user, tokens)
 
-    def _to_response(self, user: User, tokens) -> LoginResponse:
+    def _to_response(self, user: Usuario, tokens) -> LoginResponse:
         """
-        Converte a entidade User para LoginResponse.
+        Converte a entidade Usuario para LoginResponse.
 
         Args:
             user: Entidade do usuário.
@@ -89,15 +90,15 @@ class LoginUseCase:
             token_type="bearer",
             expires_in=JWTService.get_expires_in(),
             user=UserResponse(
-                id=user.id,
+                id=str(user.id),
                 email=user.email,
-                name=user.name,
-                phone=user.phone,
+                nome=user.nome,
+                telefone=user.telefone,
                 avatar=user.avatar,
-                email_confirmed=user.email_confirmed,
-                phone_confirmed=user.phone_confirmed,
-                plan_type=user.plan.type,
-                plan_max_bots=user.plan.max_bots,
-                created_at=user.created_at.isoformat() if user.created_at else "",
+                email_confirmado=user.email_confirmado,
+                telefone_confirmado=user.telefone_confirmado,
+                plano_tipo=user.plano.tipo.value if hasattr(user.plano.tipo, 'value') else user.plano.tipo,
+                plano_max_bots=user.plano.max_bots,
+                criado_em=user.criado_em.isoformat() if user.criado_em else "",
             )
         )

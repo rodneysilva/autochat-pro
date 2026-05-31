@@ -7,8 +7,8 @@
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
 
-// URL base da API
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+// URL base da API - usa variável de ambiente ou localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8100/api/v1'
 
 /**
  * Tipos de erro da API.

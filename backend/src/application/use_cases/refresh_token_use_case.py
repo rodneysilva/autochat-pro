@@ -8,9 +8,10 @@ utilizando um token de refresh válido.
 import jwt
 
 from src.domain.repositories.user_repository import UserRepository
+from src.domain.entities.user import Usuario, StatusUsuario
 from src.application.dto.auth_dto import AuthResponse
 from src.application.services.jwt_service import JWTService
-from src.shared.exceptions import TokenExpiredException, InvalidTokenException, UnauthorizedError
+from src.shared.exceptions import TokenExpiredException, InvalidTokenException, UnauthorizedException
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -41,7 +42,7 @@ class RefreshTokenUseCase:
         Raises:
             InvalidTokenException: Se o token for inválido.
             TokenExpiredException: Se o token estiver expirado.
-            UnauthorizedError: Se o usuário não existir ou não estiver ativo.
+            UnauthorizedException: Se o usuário não existir ou não estiver ativo.
         """
         logger.info("Tentativa de refresh token")
 
@@ -64,17 +65,17 @@ class RefreshTokenUseCase:
             user = await self._repository.find_by_id(user_id)
             if not user:
                 logger.warning(f"Usuário não encontrado: {user_id}")
-                raise UnauthorizedError("Usuário não encontrado")
+                raise UnauthorizedException("Usuário não encontrado")
 
             # Verificar se a conta está ativa
-            if user.status != "active":
+            if user.status != StatusUsuario.ATIVO:
                 logger.warning(f"Conta não ativa: {user.email} - {user.status}")
-                raise UnauthorizedError("Esta conta não está ativa")
+                raise UnauthorizedException("Esta conta não está ativa")
 
             logger.info(f"Refresh token bem-sucedido: {user.email}")
 
             # Gerar novo par de tokens
-            tokens = JWTService.create_token_pair(user.id)
+            tokens = JWTService.create_token_pair(str(user.id))
 
             return AuthResponse(
                 access_token=tokens.access_token,

@@ -97,16 +97,16 @@ class UserResponse(BaseModel):
 
     id: str = Field(..., description="ID do usuário")
     email: EmailStr = Field(..., description="Email do usuário")
-    name: str = Field(..., description="Nome do usuário")
-    phone: Optional[str] = Field(None, description="Telefone do usuário")
+    nome: str = Field(..., description="Nome do usuário")
+    telefone: Optional[str] = Field(None, description="Telefone do usuário")
     avatar: Optional[str] = Field(None, description="URL do avatar")
-    email_confirmed: bool = Field(default=False, description="Email confirmado")
-    phone_confirmed: bool = Field(default=False, description="Telefone confirmado")
+    email_confirmado: bool = Field(default=False, description="Email confirmado")
+    telefone_confirmado: bool = Field(default=False, description="Telefone confirmado")
 
-    plan_type: str = Field(..., description="Tipo do plano")
-    plan_max_bots: int = Field(..., description="Máximo de bots permitidos")
+    plano_tipo: str = Field(..., description="Tipo do plano")
+    plano_max_bots: int = Field(..., description="Máximo de bots permitidos")
 
-    created_at: str = Field(..., description="Data de criação")
+    criado_em: str = Field(..., description="Data de criação")
 
 
 class RegisterResponse(BaseModel):

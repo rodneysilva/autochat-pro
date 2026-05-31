@@ -23,6 +23,7 @@ from src.application.dto.auth_dto import (
     LoginResponse,
     RefreshTokenRequest,
     AuthResponse,
+    UserResponse,
 )
 from src.shared.exceptions import BaseAppException
 from src.shared.utils.logger import get_logger
@@ -143,13 +144,13 @@ async def register(
         try:
             from src.infrastructure.external_services.email import get_email_service
 
-            confirm_token = confirm_use_case.generate_confirmation_token(result.user.id)
+            confirm_token = confirm_use_case.generate_confirmation_token(str(result.user.id))
             confirm_link = confirm_use_case.generate_confirmation_link(confirm_token)
 
             email_service = get_email_service()
             await email_service.send_confirmation_email(
                 to_email=result.user.email,
-                user_name=result.user.name,
+                user_name=result.user.nome,
                 confirmation_link=confirm_link,
             )
         except Exception as e:
@@ -252,19 +253,19 @@ async def get_current_user_endpoint(
 
     Requer token de acesso válido.
     """
-    from src.application.dto.auth_dto import UserResponse
+    from src.domain.entities.user import Usuario
 
     return UserResponse(
-        id=current_user.id,
+        id=str(current_user.id),
         email=current_user.email,
-        name=current_user.name,
-        phone=current_user.phone,
+        nome=current_user.nome,
+        telefone=current_user.telefone,
         avatar=current_user.avatar,
-        email_confirmed=current_user.email_confirmed,
-        phone_confirmed=current_user.phone_confirmed,
-        plan_type=current_user.plan.type,
-        plan_max_bots=current_user.plan.max_bots,
-        created_at=current_user.created_at.isoformat() if current_user.created_at else "",
+        email_confirmado=current_user.email_confirmado,
+        telefone_confirmado=current_user.telefone_confirmado,
+        plano_tipo=current_user.plano.tipo.value if hasattr(current_user.plano.tipo, 'value') else current_user.plano.tipo,
+        plano_max_bots=current_user.plano.max_bots,
+        criado_em=current_user.criado_em.isoformat() if current_user.criado_em else "",
     )
 
 
@@ -309,7 +310,7 @@ async def confirm_email(
                     email_service = get_email_service()
                     await email_service.send_welcome_email(
                         to_email=user.email,
-                        user_name=user.name,
+                        user_name=user.nome,
                     )
             except Exception as e:
                 logger.error(f"Erro ao enviar email de boas-vindas: {e}")
@@ -351,17 +352,17 @@ async def resend_confirmation(
             # Não revelar se o email existe
             return {"message": "Se o email estiver cadastrado, uma nova confirmação será enviada"}
 
-        if user.email_confirmed:
+        if user.email_confirmado:
             return {"message": "Email já confirmado"}
 
         # Gerar novo token e enviar email
-        confirm_token = use_case.generate_confirmation_token(user.id)
+        confirm_token = use_case.generate_confirmation_token(str(user.id))
         confirm_link = use_case.generate_confirmation_link(confirm_token)
 
         email_service = get_email_service()
         await email_service.send_confirmation_email(
             to_email=user.email,
-            user_name=user.name,
+            user_name=user.nome,
             confirmation_link=confirm_link,
         )
 

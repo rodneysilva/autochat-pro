@@ -4,10 +4,10 @@ import { persist } from 'zustand/middleware'
 export interface User {
   id: string
   email: string
-  name: string
+  nome: string
   avatar?: string
-  plan: {
-    type: 'free' | 'basic' | 'pro'
+  plano: {
+    tipo: 'free' | 'basic' | 'pro'
     maxBots: number
     maxMessagesPerMonth: number
     expiresAt: Date | null

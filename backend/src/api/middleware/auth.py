@@ -11,11 +11,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from src.application.services.jwt_service import JWTService
-from src.domain.entities.user import User
+from src.domain.entities.user import Usuario, StatusUsuario
 from src.domain.repositories.user_repository import UserRepository
 from src.infrastructure.database.mongodb import MongoDB
 from src.infrastructure.repositories.user_repository_impl import MongoUserRepository
-from src.shared.exceptions import TokenExpiredException, InvalidTokenException, UnauthorizedError
+from src.shared.exceptions import TokenExpiredException, InvalidTokenException
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -32,7 +32,7 @@ async def get_user_repository() -> UserRepository:
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     repository: UserRepository = Depends(get_user_repository),
-) -> Optional[User]:
+) -> Optional[Usuario]:
     """
     Obtém o usuário atual sem exigir autenticação.
 
@@ -58,7 +58,7 @@ async def get_current_user_optional(
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     repository: UserRepository = Depends(get_user_repository),
-) -> User:
+) -> Usuario:
     """
     Obtém o usuário atual a partir do token JWT.
 
@@ -114,7 +114,7 @@ async def get_current_user(
             )
 
         # Verificar se a conta está ativa
-        if user.status != "active":
+        if user.status != StatusUsuario.ATIVO:
             logger.warning(f"Conta não ativa: {user.email} - {user.status}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -133,8 +133,8 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
+    current_user: Usuario = Depends(get_current_user),
+) -> Usuario:
     """
     Obtém o usuário atual, verificando se está ativo.
 
@@ -147,7 +147,7 @@ async def get_current_active_user(
     Raises:
         HTTPException: Se o usuário não estiver ativo.
     """
-    if current_user.status != "active":
+    if current_user.status != StatusUsuario.ATIVO:
         logger.warning(f"Conta não ativa: {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -158,8 +158,8 @@ async def get_current_active_user(
 
 
 async def require_email_confirmed(
-    current_user: User = Depends(get_current_user),
-) -> User:
+    current_user: Usuario = Depends(get_current_user),
+) -> Usuario:
     """
     Exige que o email do usuário esteja confirmado.
 
@@ -172,7 +172,7 @@ async def require_email_confirmed(
     Raises:
         HTTPException: Se o email não estiver confirmado.
     """
-    if not current_user.email_confirmed:
+    if not current_user.email_confirmado:
         logger.warning(f"Email não confirmado: {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -193,10 +193,11 @@ def require_plan(plan_type: str):
         Dependência FastAPI.
     """
     async def check_plan(
-        current_user: User = Depends(get_current_user),
-    ) -> User:
-        if current_user.plan.type != plan_type:
-            logger.warning(f"Plano insuficiente: {current_user.email} tem {current_user.plan.type}, precisa de {plan_type}")
+        current_user: Usuario = Depends(get_current_user),
+    ) -> Usuario:
+        user_plan = current_user.plano.tipo.value if hasattr(current_user.plano.tipo, 'value') else current_user.plano.tipo
+        if user_plan != plan_type:
+            logger.warning(f"Plano insuficiente: {current_user.email} tem {user_plan}, precisa de {plan_type}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"erro": {"codigo": "INSUFFICIENT_PLAN", "mensagem": f"Requer plano {plan_type}"}}
@@ -221,13 +222,14 @@ def require_min_plan(min_plan: str):
     plan_hierarchy = {"free": 0, "basic": 1, "pro": 2}
 
     async def check_plan(
-        current_user: User = Depends(get_current_user),
-    ) -> User:
-        user_level = plan_hierarchy.get(current_user.plan.type, 0)
+        current_user: Usuario = Depends(get_current_user),
+    ) -> Usuario:
+        user_plan = current_user.plano.tipo.value if hasattr(current_user.plano.tipo, 'value') else current_user.plano.tipo
+        user_level = plan_hierarchy.get(user_plan, 0)
         required_level = plan_hierarchy.get(min_plan, 0)
 
         if user_level < required_level:
-            logger.warning(f"Plano insuficiente: {current_user.email} tem {current_user.plan.type}, mínimo {min_plan}")
+            logger.warning(f"Plano insuficiente: {current_user.email} tem {user_plan}, mínimo {min_plan}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"erro": {"codigo": "INSUFFICIENT_PLAN", "mensagem": f"Requer plano no mínimo {min_plan}"}}

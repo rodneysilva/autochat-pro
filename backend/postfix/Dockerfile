@@ -19,7 +19,9 @@ RUN mkdir -p /var/spool/postfix /var/spool/postfix/pid /var/run/opendkim
 COPY main.cf /etc/postfix/main.cf
 COPY aliases /etc/postfix/aliases
 COPY setup.sh /usr/local/bin/setup.sh
-COPY sasl_passwd /etc/postfix/sasl_passwd 2>/dev/null || true
+
+# Criar sasl_passwd vazio (opcional)
+RUN touch /etc/postfix/sasl_passwd
 
 RUN chmod +x /usr/local/bin/setup.sh
 

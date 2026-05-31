@@ -6,7 +6,8 @@ e configurações da aplicação de forma type-safe.
 """
 
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
+        env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore"
     )
@@ -25,7 +27,7 @@ class Settings(BaseSettings):
     # Ambiente
     # ========================================
     ENVIRONMENT: str = Field(default="development", description="Ambiente da aplicação")
-    DEBUG: bool = Field(default=True, description="Modo debug")
+    DEBUG: bool = Field(default=False, description="Modo debug")
     API_V1_PREFIX: str = Field(default="/api/v1", description="Prefixo da API v1")
 
     # ========================================
@@ -37,7 +39,7 @@ class Settings(BaseSettings):
     # ========================================
     # Segurança
     # ========================================
-    SECRET_KEY: str = Field(..., description="Chave secreta para JWT")
+    SECRET_KEY: str = Field(..., description="Chave secreta para JWT (OBRIGATÓRIO)")
     ALGORITHM: str = Field(default="HS256", description="Algoritmo de assinatura JWT")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
         default=60,
@@ -83,11 +85,11 @@ class Settings(BaseSettings):
     # ========================================
     # Email
     # ========================================
-    MAIL_USERNAME: str = Field(default="apikey", description="Usuário do servidor de email")
+    MAIL_USERNAME: str = Field(default="", description="Usuário do servidor de email")
     MAIL_PASSWORD: str = Field(default="", description="Senha do servidor de email")
     MAIL_FROM: str = Field(default="noreply@autochat.pro", description="Email remetente")
     MAIL_PORT: int = Field(default=587, description="Porta do servidor SMTP")
-    MAIL_SERVER: str = Field(default="smtp.sendgrid.net", description="Servidor SMTP")
+    MAIL_SERVER: str = Field(default="postfix", description="Servidor SMTP")
     MAIL_FROM_NAME: str = Field(default="AutoChat Pro", description="Nome do remetente")
     MAIL_STARTTLS: bool = Field(default=True, description="Usar STARTTLS")
     MAIL_SSL_TLS: bool = Field(default=False, description="Usar SSL/TLS")
@@ -95,15 +97,15 @@ class Settings(BaseSettings):
     # ========================================
     # SMS (Twilio)
     # ========================================
-    TWILIO_ACCOUNT_SID: str = Field(default="", description="Account SID do Twilio")
-    TWILIO_AUTH_TOKEN: str = Field(default="", description="Auth Token do Twilio")
-    TWILIO_PHONE_NUMBER: str = Field(default="", description="Número de telefone do Twilio")
+    TWILIO_ACCOUNT_SID: Optional[str] = Field(default=None, description="Account SID do Twilio")
+    TWILIO_AUTH_TOKEN: Optional[str] = Field(default=None, description="Auth Token do Twilio")
+    TWILIO_PHONE_NUMBER: Optional[str] = Field(default=None, description="Número de telefone do Twilio")
 
     # ========================================
     # LLM - GLM
     # ========================================
-    LLM_API_URL: str = Field(default="", description="URL da API do LLM")
-    LLM_API_KEY: str = Field(default="", description="API Key do LLM")
+    LLM_API_URL: Optional[str] = Field(default=None, description="URL da API do LLM")
+    LLM_API_KEY: Optional[str] = Field(default=None, description="API Key do LLM")
     LLM_MODEL: str = Field(default="glm-4", description="Modelo LLM padrão")
     LLM_TEMPERATURE: float = Field(default=0.7, description="Temperatura padrão do LLM")
     LLM_MAX_TOKENS: int = Field(default=500, description="Máximo de tokens padrão")
@@ -111,8 +113,11 @@ class Settings(BaseSettings):
     # ========================================
     # WhatsApp
     # ========================================
-    WHATSAPP_API_URL: str = Field(default="", description="URL da API do WhatsApp")
-    WHATSAPP_API_KEY: str = Field(default="", description="API Key do WhatsApp")
+    WHATSAPP_API_URL: str = Field(default="http://evolution-api:8080", description="URL da API do WhatsApp")
+    WHATSAPP_API_KEY: str = Field(
+        default="change-me-in-production",
+        description="API Key do WhatsApp (OBRIGATÓRIO em produção)"
+    )
 
     # ========================================
     # Rate Limiting
@@ -151,6 +156,14 @@ class Settings(BaseSettings):
         """URL completa do banco de dados."""
         return self.MONGODB_URL
 
+    def validate_production(self) -> None:
+        """Valida configurações obrigatórias para produção."""
+        if self.is_production:
+            if self.SECRET_KEY in ["autochat-secret-key-development-mudar-em-producao", "change-me"]:
+                raise ValueError("SECRET_KEY deve ser alterado em produção")
+            if self.WHATSAPP_API_KEY == "change-me-in-production":
+                raise ValueError("WHATSAPP_API_KEY deve ser configurado em produção")
+
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -160,7 +173,9 @@ def get_settings() -> Settings:
     Utiliza lru_cache para garantir que as configurações sejam carregadas
     apenas uma vez e reutilizadas durante toda a aplicação.
     """
-    return Settings()
+    settings = Settings()
+    settings.validate_production()
+    return settings
 
 
 # Instância global das configurações

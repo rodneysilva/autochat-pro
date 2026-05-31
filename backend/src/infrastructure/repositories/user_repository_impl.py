@@ -6,13 +6,13 @@ utilizando MongoDB como banco de dados.
 """
 
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from src.domain.repositories.user_repository import UserRepository
-from src.domain.entities.user import User, Plan, UserStatus
+from src.domain.entities.user import Usuario, ConfiguracaoPlano, StatusUsuario
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -31,61 +31,74 @@ class MongoUserRepository(UserRepository):
         self._collection = database.users
         self._database = database
 
-    def _document_to_user(self, doc: dict) -> User:
-        """Converte um documento do MongoDB para a entidade User."""
+    def _document_to_user(self, doc: dict) -> Optional[Usuario]:
+        """Converte um documento do MongoDB para a entidade Usuario."""
         if not doc:
             return None
 
         plan_data = doc.get("plan", {})
-        plan = Plan(
-            type=plan_data.get("type", "free"),
+        plan = ConfiguracaoPlano(
+            tipo=plan_data.get("type", "free"),
             max_bots=plan_data.get("max_bots", 1),
-            max_messages_per_month=plan_data.get("max_messages_per_month", 100),
-            expires_at=plan_data.get("expires_at"),
+            max_mensagens_por_mes=plan_data.get("max_messages_per_month", 100),
+            max_contatos=plan_data.get("max_contacts", 50),
+            max_automation_rules=plan_data.get("max_automation_rules", 5),
+            max_conversations=plan_data.get("max_conversations", 50),
+            features=plan_data.get("features", []),
+            expira_em=plan_data.get("expires_at"),
+            trial_termina_em=plan_data.get("trial_ends_at"),
+            trial_utilizado=plan_data.get("trial_used", False),
         )
 
-        return User(
+        return Usuario(
             id=str(doc["_id"]),
-            email=doc.get("email"),
-            phone=doc.get("phone"),
-            email_confirmed=doc.get("email_confirmed", False),
-            phone_confirmed=doc.get("phone_confirmed", False),
-            password_hash=doc.get("password_hash"),
-            name=doc.get("name"),
+            email=doc.get("email", ""),
+            telefone=doc.get("phone"),
+            email_confirmado=doc.get("email_confirmed", False),
+            telefone_confirmado=doc.get("phone_confirmed", False),
+            senha_hash=doc.get("password_hash"),
+            nome=doc.get("name", ""),
             avatar=doc.get("avatar"),
-            plan=plan,
-            status=doc.get("status", UserStatus.ACTIVE),
-            created_at=doc.get("created_at"),
-            updated_at=doc.get("updated_at"),
+            plano=plan,
+            status=doc.get("status", StatusUsuario.ATIVO),
+            criado_em=doc.get("created_at"),
+            atualizado_em=doc.get("updated_at"),
+            ultimo_login=doc.get("last_login"),
         )
 
-    def _user_to_document(self, user: User) -> dict:
-        """Converte a entidade User para documento do MongoDB."""
+    def _user_to_document(self, user: Usuario) -> dict:
+        """Converte a entidade Usuario para documento do MongoDB."""
         doc = {
             "email": user.email,
-            "phone": user.phone,
-            "email_confirmed": user.email_confirmed,
-            "phone_confirmed": user.phone_confirmed,
-            "password_hash": user.password_hash,
-            "name": user.name,
+            "phone": user.telefone,
+            "email_confirmed": user.email_confirmado,
+            "phone_confirmed": user.telefone_confirmado,
+            "password_hash": user.senha_hash,
+            "name": user.nome,
             "avatar": user.avatar,
-            "status": user.status,
+            "status": user.status.value if hasattr(user.status, 'value') else user.status,
             "plan": {
-                "type": user.plan.type,
-                "max_bots": user.plan.max_bots,
-                "max_messages_per_month": user.plan.max_messages_per_month,
-                "expires_at": user.plan.expires_at,
+                "type": user.plano.tipo.value if hasattr(user.plano.tipo, 'value') else user.plano.tipo,
+                "max_bots": user.plano.max_bots,
+                "max_messages_per_month": user.plano.max_mensagens_por_mes,
+                "max_contacts": user.plano.max_contatos,
+                "max_automation_rules": user.plano.max_automation_rules,
+                "max_conversations": user.plano.max_conversations,
+                "features": user.plano.features,
+                "expires_at": user.plano.expira_em,
+                "trial_ends_at": user.plano.trial_termina_em,
+                "trial_used": user.plano.trial_utilizado,
             },
-            "updated_at": datetime.utcnow(),
+            "updated_at": datetime.now(timezone.utc),
         }
 
         # Se já tem ID, é uma atualização
         if user.id:
-            doc["created_at"] = user.created_at
+            doc["created_at"] = user.criado_em
 
         return doc
 
-    async def create(self, user: User) -> User:
+    async def create(self, user: Usuario) -> Usuario:
         """
         Cria um novo usuário.
 
@@ -96,16 +109,16 @@ class MongoUserRepository(UserRepository):
             Usuário criado com ID preenchido.
         """
         doc = self._user_to_document(user)
-        doc["created_at"] = datetime.utcnow()
-        doc["status"] = UserStatus.ACTIVE
+        doc["created_at"] = datetime.now(timezone.utc)
+        doc["status"] = StatusUsuario.ATIVO.value if hasattr(StatusUsuario.ATIVO, 'value') else StatusUsuario.ATIVO
 
         result = await self._collection.insert_one(doc)
 
         created_user = await self.find_by_id(str(result.inserted_id))
-        logger.info(f"Usuário criado: {created_user.email}")
+        logger.info(f"Usuário criado: {created_user.email if created_user else 'unknown'}")
         return created_user
 
-    async def find_by_id(self, user_id: str) -> Optional[User]:
+    async def find_by_id(self, user_id: str) -> Optional[Usuario]:
         """
         Busca um usuário por ID.
 
@@ -121,7 +134,7 @@ class MongoUserRepository(UserRepository):
         except Exception:
             return None
 
-    async def find_by_email(self, email: str) -> Optional[User]:
+    async def find_by_email(self, email: str) -> Optional[Usuario]:
         """
         Busca um usuário por email.
 
@@ -134,7 +147,7 @@ class MongoUserRepository(UserRepository):
         doc = await self._collection.find_one({"email": email})
         return self._document_to_user(doc)
 
-    async def find_by_phone(self, phone: str) -> Optional[User]:
+    async def find_by_phone(self, phone: str) -> Optional[Usuario]:
         """
         Busca um usuário por telefone.
 
@@ -147,7 +160,7 @@ class MongoUserRepository(UserRepository):
         doc = await self._collection.find_one({"phone": phone})
         return self._document_to_user(doc)
 
-    async def update(self, user: User) -> User:
+    async def update(self, user: Usuario) -> Usuario:
         """
         Atualiza um usuário.
 
@@ -168,7 +181,7 @@ class MongoUserRepository(UserRepository):
         )
 
         updated_user = await self.find_by_id(user.id)
-        logger.info(f"Usuário atualizado: {updated_user.email}")
+        logger.info(f"Usuário atualizado: {updated_user.email if updated_user else 'unknown'}")
         return updated_user
 
     async def delete(self, user_id: str) -> bool:
@@ -184,7 +197,7 @@ class MongoUserRepository(UserRepository):
         # Soft delete - apenas marca como deletado
         result = await self._collection.update_one(
             {"_id": ObjectId(user_id)},
-            {"$set": {"status": UserStatus.DELETED, "updated_at": datetime.utcnow()}}
+            {"$set": {"status": StatusUsuario.DELETADO.value if hasattr(StatusUsuario.DELETADO, 'value') else StatusUsuario.DELETADO, "updated_at": datetime.now(timezone.utc)}}
         )
 
         is_deleted = result.modified_count > 0
@@ -196,8 +209,8 @@ class MongoUserRepository(UserRepository):
         self,
         skip: int = 0,
         limit: int = 100,
-        status: Optional[UserStatus] = None
-    ) -> List[User]:
+        status: Optional[StatusUsuario] = None
+    ) -> List[Usuario]:
         """
         Lista todos os usuários com paginação.
 
@@ -211,12 +224,12 @@ class MongoUserRepository(UserRepository):
         """
         query = {}
         if status:
-            query["status"] = status
+            query["status"] = status.value if hasattr(status, 'value') else status
 
         cursor = self._collection.find(query).skip(skip).limit(limit)
         docs = await cursor.to_list(length=limit)
 
-        return [self._document_to_user(doc) for doc in docs]
+        return [self._document_to_user(doc) for doc in docs if self._document_to_user(doc)]
 
     async def email_exists(self, email: str) -> bool:
         """
@@ -259,7 +272,7 @@ class MongoUserRepository(UserRepository):
             {
                 "$set": {
                     "email_confirmed": True,
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.now(timezone.utc)
                 }
             }
         )
@@ -283,7 +296,7 @@ class MongoUserRepository(UserRepository):
             {
                 "$set": {
                     "phone_confirmed": True,
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.now(timezone.utc)
                 }
             }
         )
@@ -308,7 +321,7 @@ class MongoUserRepository(UserRepository):
             {
                 "$set": {
                     "password_hash": password_hash,
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.now(timezone.utc)
                 }
             }
         )

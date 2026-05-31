@@ -6,53 +6,55 @@
 
 import { getHttpClient } from './http-client'
 
-interface RegisterData {
+export interface RegisterData {
   email: string
   phone?: string
   password: string
   name: string
 }
 
-interface LoginData {
+export interface LoginData {
   email: string
   password: string
 }
 
-interface AuthResponse {
+export interface AuthResponse {
   access_token: string
   refresh_token: string
   token_type: string
   expires_in: number
 }
 
-interface LoginResponse extends AuthResponse {
+export interface LoginResponse extends AuthResponse {
   message: string
   user: {
     id: string
     email: string
-    name: string
+    nome?: string
+    name?: string
     phone?: string
     avatar?: string
     email_confirmed: boolean
     phone_confirmed: boolean
-    plan_type: string
-    plan_max_bots: number
+    plano_tipo: string
+    plano_max_bots: number
     created_at: string
   }
 }
 
-interface RegisterResponse {
+export interface RegisterResponse {
   message: string
   user: {
     id: string
     email: string
-    name: string
+    nome?: string
+    name?: string
     phone?: string
     avatar?: string
     email_confirmed: boolean
     phone_confirmed: boolean
-    plan_type: string
-    plan_max_bots: number
+    plano_tipo: string
+    plano_max_bots: number
     created_at: string
   }
 }
@@ -100,14 +102,16 @@ export const authService = {
   async getMe(): Promise<{
     id: string
     email: string
-    name: string
+    nome?: string
+    name?: string
     phone?: string
     avatar?: string
     email_confirmed: boolean
     phone_confirmed: boolean
-    plan_type: string
-    plan_max_bots: number
-    created_at: string
+    plano_tipo: string
+    plano_max_bots: number
+    criado_em?: string
+    created_at?: string
   }> {
     const client = getHttpClient()
     return client.get(`${AUTH_PATH}/me`)

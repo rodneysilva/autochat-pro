@@ -7,11 +7,11 @@ incluindo validações e preparação dos dados.
 
 from typing import Optional
 
-from src.domain.entities.user import User, Plan, UserStatus
+from src.domain.entities.user import Usuario, ConfiguracaoPlano, StatusUsuario, TipoPlano
 from src.domain.repositories.user_repository import UserRepository
 from src.application.dto.auth_dto import RegisterRequest, RegisterResponse, UserResponse
 from src.application.services.password_service import PasswordService
-from src.shared.exceptions import ValidationError
+from src.shared.exceptions import ValidationException
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -40,14 +40,14 @@ class RegisterUseCase:
             Resposta com os dados do usuário criado.
 
         Raises:
-            ValidationError: Se os dados forem inválidos ou o email já existir.
+            ValidationException: Se os dados forem inválidos ou o email já existir.
         """
         logger.info(f"Tentativa de registro: {request.email}")
 
         # Verificar se o email já existe
         if await self._repository.email_exists(request.email):
             logger.warning(f"Email já cadastrado: {request.email}")
-            raise ValidationError(
+            raise ValidationException(
                 "Já existe uma conta com este email",
                 field="email"
             )
@@ -57,7 +57,7 @@ class RegisterUseCase:
             phone_clean = self._clean_phone(request.phone)
             if await self._repository.phone_exists(phone_clean):
                 logger.warning(f"Telefone já cadastrado: {phone_clean}")
-                raise ValidationError(
+                raise ValidationException(
                     "Já existe uma conta com este telefone",
                     field="phone"
                 )
@@ -66,15 +66,18 @@ class RegisterUseCase:
         password_hash = PasswordService.hash_password(request.password)
 
         # Criar entidade do usuário
-        user = User(
+        plano = ConfiguracaoPlano(tipo=TipoPlano.FREE)
+        plano._aplicar_limites()
+
+        user = Usuario(
             email=request.email,
-            phone=phone_clean if request.phone else None,
-            password_hash=password_hash,
-            name=request.name,
-            email_confirmed=False,  # Requer confirmação por email
-            phone_confirmed=False,
-            plan=Plan(type="free"),  # Plano free por padrão
-            status=UserStatus.ACTIVE,
+            telefone=phone_clean if request.phone else None,
+            senha_hash=password_hash,
+            nome=request.name,
+            email_confirmado=False,  # Requer confirmação por email
+            telefone_confirmado=False,
+            plano=plano,
+            status=StatusUsuario.ATIVO,
         )
 
         # Salvar no banco
@@ -100,9 +103,9 @@ class RegisterUseCase:
         # Remove caracteres não numéricos
         return "".join(filter(str.isdigit, phone))
 
-    def _to_response(self, user: User) -> RegisterResponse:
+    def _to_response(self, user: Usuario) -> RegisterResponse:
         """
-        Converte a entidade User para RegisterResponse.
+        Converte a entidade Usuario para RegisterResponse.
 
         Args:
             user: Entidade do usuário.
@@ -113,15 +116,15 @@ class RegisterUseCase:
         return RegisterResponse(
             message="Usuário registrado com sucesso. Verifique seu email para confirmar a conta.",
             user=UserResponse(
-                id=user.id,
+                id=str(user.id),
                 email=user.email,
-                name=user.name,
-                phone=user.phone,
+                nome=user.nome,
+                telefone=user.telefone,
                 avatar=user.avatar,
-                email_confirmed=user.email_confirmed,
-                phone_confirmed=user.phone_confirmed,
-                plan_type=user.plan.type,
-                plan_max_bots=user.plan.max_bots,
-                created_at=user.created_at.isoformat() if user.created_at else "",
+                email_confirmado=user.email_confirmado,
+                telefone_confirmado=user.telefone_confirmado,
+                plano_tipo=user.plano.tipo.value if hasattr(user.plano.tipo, 'value') else user.plano.tipo,
+                plano_max_bots=user.plano.max_bots,
+                criado_em=user.criado_em.isoformat() if user.criado_em else "",
             )
         )
