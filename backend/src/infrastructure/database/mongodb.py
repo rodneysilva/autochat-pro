@@ -29,16 +29,16 @@ class MongoDB:
 
         try:
             cls._client = AsyncIOMotorClient(
-                settings.mongodb_url,
+                settings.MONGODB_URL,
                 serverSelectionTimeoutMS=5000,
             )
 
             # Testar conexão
             await cls._client.admin.command('ping')
 
-            cls._database = cls._client[settings.mongodb_db_name]
+            cls._database = cls._client[settings.DATABASE_NAME]
 
-            logger.info(f"Conectado ao MongoDB: {settings.mongodb_db_name}")
+            logger.info(f"Conectado ao MongoDB: {settings.DATABASE_NAME}")
 
         except Exception as e:
             logger.error(f"Erro ao conectar ao MongoDB: {e}")

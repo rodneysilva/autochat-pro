@@ -3,13 +3,13 @@ Implementação do repositório de bots com MongoDB.
 """
 
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from src.domain.repositories.bot_repository import BotRepository
-from src.domain.entities.bot import Bot, BotStatus, BotType
+from src.domain.entities.bot import Bot, TipoBot, StatusBot
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,67 +33,47 @@ class MongoBotRepository(BotRepository):
         if not doc:
             return None
 
-        from src.domain.entities.user import Plan
-
-        config = doc.get("config", {})
-        stats = doc.get("stats", {})
-
         return Bot(
             id=str(doc["_id"]),
-            user_id=str(doc["user_id"]) if "user_id" in doc else None,
-            name=doc.get("name"),
-            type=BotType(doc.get("type", "whatsapp")),
-            status=BotStatus(doc.get("status", "disconnected")),
-            config={
-                "token": config.get("token"),
-                "welcome_message": config.get("welcome_message"),
-                "auto_reply_enabled": config.get("auto_reply_enabled", False),
-                "llm_enabled": config.get("llm_enabled", False),
-                "llm_prompt": config.get("llm_prompt"),
-            },
-            stats={
-                "total_messages": stats.get("total_messages", 0),
-                "total_conversations": stats.get("total_conversations", 0),
-            },
-            created_at=doc.get("created_at"),
+            usuario_id=str(doc.get("user_id", "")),
+            nome=doc.get("name", ""),
+            tipo=TipoBot(doc.get("type", "whatsapp")),
+            status=StatusBot(doc.get("status", "disconnected")),
+            mensagem_boas_vindas=doc.get("welcome_message", "Olá!"),
+            mensagem_despedida=doc.get("goodbye_message", "Obrigado!"),
+            mensagem_resposta_padrao=doc.get("default_message", "Não entendi."),
+            criado_em=doc.get("created_at"),
+            atualizado_em=doc.get("updated_at"),
         )
 
     def _bot_to_document(self, bot: Bot) -> dict:
         """Converte a entidade Bot para documento do MongoDB."""
         doc = {
-            "user_id": ObjectId(bot.user_id) if bot.user_id else None,
-            "name": bot.name,
-            "type": bot.type.value,
-            "status": bot.status.value,
-            "config": {
-                "token": bot.config.get("token"),
-                "welcome_message": bot.config.get("welcome_message"),
-                "auto_reply_enabled": bot.config.get("auto_reply_enabled", False),
-                "llm_enabled": bot.config.get("llm_enabled", False),
-                "llm_prompt": bot.config.get("llm_prompt"),
-            },
-            "stats": {
-                "total_messages": bot.stats.get("total_messages", 0),
-                "total_conversations": bot.stats.get("total_conversations", 0),
-            },
-            "updated_at": datetime.utcnow(),
+            "user_id": ObjectId(bot.usuario_id) if bot.usuario_id else None,
+            "name": bot.nome,
+            "type": bot.tipo.value if hasattr(bot.tipo, 'value') else bot.tipo,
+            "status": bot.status.value if hasattr(bot.status, 'value') else bot.status,
+            "welcome_message": bot.mensagem_boas_vindas,
+            "goodbye_message": bot.mensagem_despedida,
+            "default_message": bot.mensagem_resposta_padrao,
+            "updated_at": datetime.now(timezone.utc),
         }
 
         # Se já tem ID, é uma atualização
         if bot.id:
-            doc["created_at"] = bot.created_at
+            doc["created_at"] = bot.criado_em
 
         return doc
 
     async def create(self, bot: Bot) -> Bot:
         """Cria um novo bot."""
         doc = self._bot_to_document(bot)
-        doc["created_at"] = datetime.utcnow()
+        doc["created_at"] = datetime.now(timezone.utc)
 
         result = await self._collection.insert_one(doc)
         created_bot = await self.find_by_id(str(result.inserted_id))
 
-        logger.info(f"Bot criado: {created_bot.name}")
+        logger.info(f"Bot criado: {created_bot.nome if created_bot else 'unknown'}")
         return created_bot
 
     async def find_by_id(self, bot_id: str) -> Optional[Bot]:
@@ -107,7 +87,7 @@ class MongoBotRepository(BotRepository):
     async def find_by_user(self, user_id: str) -> List[Bot]:
         """Busca bots de um usuário."""
         docs = await self._collection.find({"user_id": ObjectId(user_id)}).to_list(None)
-        return [self._document_to_bot(doc) for doc in docs if doc]
+        return [self._document_to_bot(doc) for doc in docs if self._document_to_bot(doc)]
 
     async def update(self, bot: Bot) -> Bot:
         """Atualiza um bot."""
@@ -122,7 +102,7 @@ class MongoBotRepository(BotRepository):
         )
 
         updated_bot = await self.find_by_id(bot.id)
-        logger.info(f"Bot atualizado: {updated_bot.name}")
+        logger.info(f"Bot atualizado: {updated_bot.nome if updated_bot else 'unknown'}")
         return updated_bot
 
     async def delete(self, bot_id: str) -> bool:
@@ -138,25 +118,25 @@ class MongoBotRepository(BotRepository):
         self,
         skip: int = 0,
         limit: int = 100,
-        status: Optional[BotStatus] = None
+        status: Optional[StatusBot] = None
     ) -> List[Bot]:
         """Lista todos os bots com paginação."""
         query = {}
         if status:
-            query["status"] = status.value
+            query["status"] = status.value if hasattr(status, 'value') else status
 
         cursor = self._collection.find(query).skip(skip).limit(limit)
         docs = await cursor.to_list(length=limit)
 
-        return [self._document_to_bot(doc) for doc in docs]
+        return [self._document_to_bot(doc) for doc in docs if self._document_to_bot(doc)]
 
-    async def update_status(self, bot_id: str, status: BotStatus) -> bool:
+    async def update_status(self, bot_id: str, status: StatusBot) -> bool:
         """Atualiza o status de um bot."""
         result = await self._collection.update_one(
             {"_id": ObjectId(bot_id)},
-            {"$set": {"status": status.value, "updated_at": datetime.utcnow()}}
+            {"$set": {"status": status.value if hasattr(status, 'value') else status, "updated_at": datetime.now(timezone.utc)}}
         )
 
         if result.modified_count > 0:
-            logger.info(f"Status do bot {bot_id} atualizado para {status.value}")
+            logger.info(f"Status do bot {bot_id} atualizado para {status}")
         return result.modified_count > 0
