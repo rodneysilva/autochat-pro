@@ -260,85 +260,33 @@ class EvolutionWhatsAppService:
         phone_number: str,
     ) -> Dict[str, Any]:
         """
-        Conecta usando número de telefone (pairing code).
-
-        Evolution API v2 docs:
-        1. POST /instance/create — cria instância
-        2. GET /instance/connect/{instance}?number=phone — retorna pairingCode
-
-        Se a instância já existe e está em 'connecting', retorna o code existente.
+        Conecta via telefone. Evolution API v2:
+        1. Deleta instância se existir
+        2. POST /instance/create
+        3. GET /instance/connect/{name}?number=phone → pairingCode
         """
         import asyncio
 
-        # Verificar se instância já existe e está em connecting
+        # Deletar se existir
         try:
-            existing = await self.list_instances()
-            for inst in existing:
-                if inst.get("name") == instance_name:
-                    state = inst.get("connectionStatus", "")
-                    if state == "open":
-                        # Já conectada!
-                        return {"pairingCode": None, "status": "connected"}
-                    elif state == "connecting":
-                        # Ainda tentando — tentar conectar de novo com o número
-                        logger.info(f"Instância {instance_name} já existe em connecting, reconectando")
-                        result = await self._request(
-                            "GET",
-                            f"/instance/connect/{instance_name}",
-                            params={"number": phone_number},
-                        )
-                        code = result.get("pairingCode")
-                        if code:
-                            logger.info(f"Pairing code: {code}")
-                            return {"pairingCode": code}
-                        return result
-                    else:
-                        # close, error, etc — deletar e recriar
-                        logger.info(f"Instância {instance_name} em estado {state}, deletando")
-                        try:
-                            await self.delete_instance(instance_name)
-                        except Exception:
-                            pass
-                        await asyncio.sleep(3)
-                    break
+            await self.delete_instance(instance_name)
+            logger.info(f"Instância {instance_name} deletada")
+            await asyncio.sleep(3)
         except Exception:
             pass
 
-        # Criar instância
-        try:
-            logger.info(f"Criando instância {instance_name}")
-            await self._request(
-                "POST",
-                "/instance/create",
-                {
-                    "instanceName": instance_name,
-                    "qrcode": False,
-                    "integration": "WHATSAPP-BAILEYS",
-                },
-            )
-        except Exception as e:
-            if "already in use" not in str(e).lower():
-                raise
-            logger.warning("Instância já existe, prosseguindo")
-
+        # Criar
+        await self.create_instance(instance_name, qrcode=False)
         await asyncio.sleep(1)
 
-        # Conectar com número
-        logger.info(f"Conectando {instance_name} com telefone {phone_number}")
+        # Conectar
         result = await self._request(
             "GET",
             f"/instance/connect/{instance_name}",
             params={"number": phone_number},
         )
 
-        code = result.get("pairingCode")
-        if code:
-            logger.info(f"Pairing code: {code}")
-            return {"pairingCode": code}
-
-        logger.warning(f"Sem pairing code. Keys: {list(result.keys())}")
-        return result
-
+        logger.info(f"PairingCode: {result.get('pairingCode')}")
         return result
 
     async def check_phone_pairing(
