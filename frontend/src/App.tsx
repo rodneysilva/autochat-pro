@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomePage from './presentation/pages/HomePage'
 import LoginPage from './presentation/pages/LoginPage'
 import RegisterPage from './presentation/pages/RegisterPage'
@@ -7,6 +7,8 @@ import ConfirmEmailPage from './presentation/pages/ConfirmEmailPage'
 import ForgotPasswordPage from './presentation/pages/ForgotPasswordPage'
 import ResetPasswordPage from './presentation/pages/ResetPasswordPage'
 import AddBotPage from './presentation/pages/AddBotPage'
+import BotsPage from './presentation/pages/BotsPage'
+import BotConfigPage from './presentation/pages/BotConfigPage'
 import MainLayout from './presentation/layouts/MainLayout'
 import { ProtectedRoute } from './presentation/components/ProtectedRoute'
 
@@ -57,22 +59,18 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={
-            <div className="space-y-6">
-              <PlaceholderPage
-                title="Meus Bots"
-                description="Gerencie seus bots de WhatsApp e Telegram. Em breve você poderá ver todos os bots conectados aqui."
-              />
-              <div className="text-center">
-                <Link to="/add-bot" className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Adicionar Bot WhatsApp
-                </Link>
-              </div>
-            </div>
-          } />
+          <Route index element={<BotsPage />} />
+        </Route>
+
+        <Route
+          path="/bots/:botId/config"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<BotConfigPage />} />
         </Route>
 
         <Route
