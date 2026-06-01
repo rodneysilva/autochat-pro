@@ -113,48 +113,53 @@ O handler global em `main.py` formata automaticamente quando se usa `BaseAppExce
 
 ## Progresso
 
-## Progresso
-
 - ✅ FASE 1-2: Infraestrutura e autenticação
 - ✅ FASE 3: Modelos de dados (DDD)
 - ✅ FASE 4: Integração WhatsApp via Evolution API (QR + phone pairing)
-- 🔜 **FASE 4.5: Persistência de bots e fluxo pós-conexão** (PRÓXIMO PASSO — ver abaixo)
-- 🔜 FASE 5: Conectar IA (GLM) aos bots
-- 🔜 FASE 6: Dashboard com métricas
+- ✅ FASE 4.5: Persistência de bots e fluxo pós-conexão
+- ✅ FASE 5: Integração IA (GLM) — GLMService, MessageProcessor, webhook receiver
+- ✅ FASE 6: Conversas e métricas — Dashboard metrics, ConversationsPage
 - 🔜 FASE 7: Gerenciamento de contatos/leads
 - 🔜 FASE 8: Planos e billing
 
-## Próximo Passo Importante — FASE 4.5
-
-O fluxo atual de WhatsApp está **incompleto**:
-- ✅ Conexão com Evolution API funciona (QR + phone pairing)
-- ❌ Bot NÃO é salvo no MongoDB após conexão
-- ❌ Não há vínculo entre instância WhatsApp e usuário logado
-- ❌ Dashboard não lista bots (não há dados para listar)
-- ❌ Após conectar, volta para página de adicionar bot sem continuidade
-
-### O que precisa ser feito:
-1. **Modelo Bot** no domain — entidade Bot com: name, instance_name, phone, user_id, status, config_ia, created_at
-2. **Repositório Bot** no infrastructure — CRUD no MongoDB (collection `bots`)
-3. **Use case CreateBot** — após conexão WhatsApp bem-sucedida, salva bot vinculado ao user
-4. **Endpoint POST /whatsapp/connect/phone** → após sucesso, cria registro no MongoDB
-5. **Endpoint GET /bots** — lista bots do usuário logado
-6. **Dashboard atualizado** — mostra cards com bots conectados, status em tempo real, ações (configurar, pausar, desconectar)
-7. **Página de configuração do bot** — definir prompt da IA, mensagens de saudação, horário de funcionamento
-8. **Webhook receiver** — quando mensagem chegar na Evolution API, buscar config do bot e responder com IA (GLM)
-
-### Fluxo completo alvo:
+## Fluxo completo implementado
 ```
 Usuário conecta WhatsApp → Salva bot no MongoDB (user_id) → Redireciona Dashboard
                                                                 ↓
                                                     Dashboard mostra bot conectado
                                                                 ↓
-                                                    Configurar prompt IA, saudação
+                                                    Configurar prompt IA, saudação, horário
                                                                 ↓
-                                                    Mensagens chegam via webhook
+                                                    Mensagens chegam via webhook (Evolution API)
                                                                 ↓
-                                                    Bot responde automaticamente com GLM
+                                                    MessageProcessor busca config do bot
+                                                                ↓
+                                                    Verifica horário de funcionamento
+                                                                ↓
+                                                    Gera resposta com GLM (ou msg padrão)
+                                                                ↓
+                                                    Envia resposta automática via WhatsApp
 ```
+
+## Arquivos criados nesta sessão
+
+### FASE 4.5
+- `frontend/src/presentation/pages/BotConfigPage.tsx` — Config do bot (3 tabs: Mensagens, Horário, IA)
+- `frontend/src/presentation/pages/BotsPage.tsx` — Listagem de bots com cards e ações
+- `frontend/src/App.tsx` — Rotas `/bots` e `/bots/:botId/config`
+
+### FASE 5
+- `backend/src/infrastructure/external_services/llm/__init__.py` — Módulo LLM
+- `backend/src/infrastructure/external_services/llm/glm_service.py` — Cliente GLM (OpenAI-compatible)
+- `backend/src/application/services/message_processor.py` — Processa mensagens webhook → IA → resposta
+- `backend/src/api/v1/endpoints/whatsapp.py` — Webhook receiver atualizado com MessageProcessor
+- `backend/src/main.py` — MessageProcessor inicializado no startup
+
+### FASE 6
+- `backend/src/api/v1/endpoints/dashboard.py` — GET /dashboard/metrics + GET /conversations
+- `backend/src/infrastructure/repositories/conversation_repository_impl.py` — Todos métodos abstratos implementados
+- `frontend/src/infrastructure/api/conversations.service.ts` — API client de conversas e dashboard
+- `frontend/src/presentation/pages/ConversationsPage.tsx` — Lista de conversas com filtros
 
 ## Preferências
 
@@ -162,3 +167,4 @@ Usuário conecta WhatsApp → Salva bot no MongoDB (user_id) → Redireciona Das
 - Comunicação: direta e prática
 - Dark mode: implementado (ThemeProvider + Tailwind dark classes)
 - Layout: mobile-first responsivo
+- Sempre guiar o usuário com hints e exemplos nas interfaces
