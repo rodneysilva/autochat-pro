@@ -115,13 +115,26 @@ export default function AddBotPage() {
           setQrCode(null)
           setPairingCode(null)
 
-          // Salvar bot no banco de dados
+          // Salvar bot no banco de dados (criar ou atualizar status para active)
           try {
             const { botsService } = await import('../../infrastructure/api/bots.service')
-            await botsService.create({
-              nome: instance,
-              tipo: 'whatsapp',
-            })
+
+            // Tenta criar o bot primeiro
+            try {
+              await botsService.create({
+                nome: instance,
+                tipo: 'whatsapp',
+              })
+            } catch (createErr: any) {
+              // Se já existe, tenta atualizar o status para active
+              const botsResponse = await botsService.list()
+              const existingBot = botsResponse.data.find(
+                (b: any) => b.nome === instance
+              )
+              if (existingBot) {
+                await botsService.resume(existingBot.id)
+              }
+            }
           } catch (err) {
             console.error('Erro ao salvar bot:', err)
           }
