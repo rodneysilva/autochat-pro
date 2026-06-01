@@ -10,6 +10,8 @@ from typing import Optional
 from src.api.middleware.auth import get_current_user
 from src.shared.utils.logger import get_logger
 
+from src.infrastructure.database.seeds import PLANS_CONFIG
+
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["Dashboard"])
@@ -323,4 +325,128 @@ async def delete_contact(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao deletar contato"}},
+        )
+
+
+# ========================================
+# Planos
+# ========================================
+
+@router.get(
+    "/plans",
+    summary="Listar planos",
+    description="Retorna planos disponíveis com limites e features.",
+)
+async def list_plans():
+    """Lista planos disponíveis."""
+    return {
+        "plans": [
+            {
+                "tipo": plan_type,
+                **plan_config,
+            }
+            for plan_type, plan_config in PLANS_CONFIG.items()
+        ]
+    }
+
+
+@router.get(
+    "/plan/current",
+    summary="Plano atual",
+    description="Retorna o plano do usuário atual com usage.",
+)
+async def get_current_plan(
+    current_user=Depends(get_current_user),
+):
+    """Retorna plano atual do usuário."""
+    try:
+        bot_repo = _get_bot_repo()
+        contact_repo = _get_contact_repo()
+        usuario_id = str(current_user.id)
+
+        # Buscar usage
+        total_bots = await bot_repo.contar_por_usuario(usuario_id)
+        total_contacts = await contact_repo.contar_por_usuario(usuario_id)
+
+        plan = current_user.plano
+        return {
+            "tipo": plan.tipo.value if hasattr(plan.tipo, 'value') else plan.tipo,
+            "max_bots": plan.max_bots,
+            "max_mensagens_por_mes": plan.max_mensagens_por_mes,
+            "max_contatos": plan.max_contatos,
+            "features": plan.features,
+            "expira_em": plan.expira_em.isoformat() if plan.expira_em else None,
+            "trial_termina_em": plan.trial_termina_em.isoformat() if plan.trial_termina_em else None,
+            "trial_utilizado": plan.trial_utilizado,
+            "usage": {
+                "bots": total_bots,
+                "contacts": total_contacts,
+            },
+        }
+    except Exception as e:
+        logger.error(f"Erro ao buscar plano: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao buscar plano"}},
+        )
+
+
+@router.post(
+    "/plan/upgrade",
+    summary="Upgrade de plano",
+    description="Faz upgrade do plano do usuário.",
+)
+async def upgrade_plan(
+    plan_type: str = Query(..., description="Novo plano (basic ou pro)"),
+    current_user=Depends(get_current_user),
+):
+    """Faz upgrade do plano."""
+    try:
+        from src.domain.entities.user import TipoPlano
+        from src.infrastructure.database.mongodb import MongoDB
+        from src.infrastructure.repositories.user_repository_impl import MongoUserRepository
+
+        if plan_type not in PLANS_CONFIG:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"erro": {"codigo": "INVALID_PLAN", "mensagem": f"Plano inválido. Planos disponíveis: {', '.join(PLANS_CONFIG.keys())}"}},
+            )
+
+        novo_tipo = TipoPlano(plan_type)
+
+        # Não permitir downgrade
+        atual = current_user.plano.tipo
+        if hasattr(atual, 'value'):
+            atual = atual.value
+        planos_ordem = {"free": 0, "basic": 1, "pro": 2}
+        if planos_ordem.get(plan_type, 0) <= planos_ordem.get(atual, 0):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"erro": {"codigo": "INVALID_UPGRADE", "mensagem": "Só é possível fazer upgrade de plano."}},
+            )
+
+        repo = MongoUserRepository(MongoDB.get_database())
+        updated = await repo.atualizar_plano(str(current_user.id), novo_tipo)
+
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao atualizar plano"}},
+            )
+
+        return {
+            "message": f"Plano atualizado para {plan_type} com sucesso!",
+            "plan": {
+                "tipo": updated.plano.tipo.value if hasattr(updated.plano.tipo, 'value') else updated.plano.tipo,
+                "max_bots": updated.plano.max_bots,
+                "features": updated.plano.features,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao fazer upgrade: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao atualizar plano"}},
         )
