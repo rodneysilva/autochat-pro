@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { botsService } from '../../infrastructure/api/bots.service'
+import { whatsappService, ConnectionStatus } from '../../infrastructure/api/whatsapp.service'
 import { useBotsStore } from '../../application/stores/botsStore'
 
-type Tab = 'mensagens' | 'horario' | 'ia'
+type Tab = 'mensagens' | 'horario' | 'whatsapp' | 'ia'
 
 export default function BotConfigPage() {
   const { botId } = useParams<{ botId: string }>()
@@ -40,6 +41,19 @@ export default function BotConfigPage() {
   const [llmSystemPrompt, setLlmSystemPrompt] = useState('')
   const [llmMaxContextMessages, setLlmMaxContextMessages] = useState(20)
 
+  // WhatsApp reconnect states
+  const [waMethod, setWaMethod] = useState<'qrcode' | 'phone'>('qrcode')
+  const [waStatus, setWaStatus] = useState<'idle' | 'connecting' | 'qrcode' | 'pairing' | 'connected' | 'error'>('idle')
+  const [waQrCode, setWaQrCode] = useState<string | null>(null)
+  const [waPairingCode, setWaPairingCode] = useState<string | null>(null)
+  const [waPhone, setWaPhone] = useState('')
+  const [waError, setWaError] = useState('')
+  const [waTimeLeft, setWaTimeLeft] = useState(180)
+  const waPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const waTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [waLoading, setWaLoading] = useState(false)
+  const [waSuccess, setWaSuccess] = useState(false)
+
   useEffect(() => {
     fetchBots()
   }, [])
@@ -73,6 +87,101 @@ export default function BotConfigPage() {
       setLoading(false)
     }
   }, [bot, botId, bots.length])
+
+  // Cleanup WhatsApp polling/timer on unmount
+  useEffect(() => {
+    return () => {
+      if (waPollRef.current) clearInterval(waPollRef.current)
+      if (waTimerRef.current) clearInterval(waTimerRef.current)
+    }
+  }, [])
+
+  const startWaStatusPoll = (instance: string, botId: string) => {
+    let pollCount = 0
+    const MAX_POLLS = 90
+
+    // Timer countdown
+    setWaTimeLeft(180)
+    waTimerRef.current = setInterval(() => {
+      setWaTimeLeft(prev => {
+        if (prev <= 1) {
+          if (waTimerRef.current) clearInterval(waTimerRef.current)
+          if (waPollRef.current) clearInterval(waPollRef.current)
+          setWaStatus('error')
+          setWaError('Tempo esgotado. O código expirou. Tente novamente.')
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    waPollRef.current = setInterval(async () => {
+      pollCount++
+      try {
+        // Primary: getStatus
+        let isConnected = false
+        try {
+          const statusResult = await whatsappService.getStatus(instance)
+          if (statusResult.connected) {
+            isConnected = true
+          }
+        } catch {}
+
+        // Fallback: checkPhoneStatus
+        if (!isConnected) {
+          try {
+            const phoneResult = await whatsappService.checkPhoneStatus(instance)
+            if ((phoneResult.status as string) !== 'pairing' && (phoneResult.status as string) !== 'disconnected') {
+              isConnected = true
+            }
+          } catch {}
+        }
+
+        if (isConnected) {
+          if (waPollRef.current) clearInterval(waPollRef.current)
+          if (waTimerRef.current) clearInterval(waTimerRef.current)
+          setWaStatus('connected')
+          setWaQrCode(null)
+          setWaPairingCode(null)
+          try {
+            await botsService.resume(botId)
+            await fetchBots()
+          } catch (err) {
+            console.error('Erro ao ativar bot:', err)
+          }
+          setWaSuccess(true)
+          setTimeout(() => navigate('/dashboard'), 2000)
+          return
+        }
+
+        if (pollCount >= MAX_POLLS) {
+          if (waPollRef.current) clearInterval(waPollRef.current)
+          if (waTimerRef.current) clearInterval(waTimerRef.current)
+          setWaStatus('error')
+          setWaError('Tempo esgotado. O código expirou. Tente novamente.')
+        }
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          if (waPollRef.current) clearInterval(waPollRef.current)
+          if (waTimerRef.current) clearInterval(waTimerRef.current)
+          setWaStatus('error')
+          setWaError('Instância não encontrada. Tente novamente.')
+        }
+      }
+    }, 2000)
+  }
+
+  const handleWaReset = () => {
+    if (waPollRef.current) clearInterval(waPollRef.current)
+    if (waTimerRef.current) clearInterval(waTimerRef.current)
+    setWaStatus('idle')
+    setWaQrCode(null)
+    setWaPairingCode(null)
+    setWaError('')
+    setWaPhone('')
+    setWaTimeLeft(180)
+    setWaSuccess(false)
+  }
 
   const handleSave = async () => {
     if (!botId) return
@@ -126,6 +235,7 @@ export default function BotConfigPage() {
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'mensagens', label: 'Mensagens', icon: '💬' },
     { key: 'horario', label: 'Horário', icon: '🕐' },
+    { key: 'whatsapp', label: 'WhatsApp', icon: '📱' },
     { key: 'ia', label: 'IA (LLM)', icon: '⚡' },
   ]
 
@@ -472,6 +582,288 @@ export default function BotConfigPage() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: WhatsApp */}
+      {activeTab === 'whatsapp' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 lg:p-6 space-y-6">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Conexão WhatsApp</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Gerencie a conexão do WhatsApp desta instância.
+              </p>
+            </div>
+
+            {/* Status badge */}
+            {bot && (
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${statusColor[bot.status] || ''}`}>
+                  {statusLabel[bot.status] || bot.status}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Instância: <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">{bot.nome}</code>
+                </span>
+              </div>
+            )}
+
+            {/* Active / Connecting state */}
+            {bot && (bot.status === 'active' || bot.status === 'connecting') && (
+              <div className="space-y-4">
+                {bot.status === 'active' ? (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Conectado</span>
+                    </div>
+                    {bot.ultimo_conectado_em && (
+                      <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                        Conectado em {new Date(bot.ultimo_conectado_em).toLocaleString('pt-BR')}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm text-blue-700 dark:text-blue-400">Aguardando conexão...</span>
+                  </div>
+                )}
+
+                {bot.status === 'active' && (
+                  <button
+                    onClick={async () => {
+                      setWaLoading(true)
+                      try {
+                        await whatsappService.logout(bot.nome)
+                        await botsService.pause(bot.id)
+                        await fetchBots()
+                      } catch (err: any) {
+                        setWaError(err?.response?.data?.message || 'Erro ao desconectar')
+                      } finally {
+                        setWaLoading(false)
+                      }
+                    }}
+                    disabled={waLoading}
+                    className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {waLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : null}
+                    Desconectar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Disconnected / Error state - reconnect */}
+            {bot && (bot.status === 'disconnected' || bot.status === 'error') && (
+              <div className="space-y-4">
+                {waError && (
+                  <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-sm text-red-600 dark:text-red-400">{waError}</p>
+                  </div>
+                )}
+
+                {waSuccess && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm text-green-600 dark:text-green-400 font-medium">✅ Conectado com sucesso! Redirecionando...</p>
+                  </div>
+                )}
+
+                {waStatus === 'idle' && !waSuccess && (
+                  <>
+                    {/* Method selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        Método de reconexão
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setWaMethod('qrcode')}
+                          className={`p-4 rounded-xl border-2 transition ${
+                            waMethod === 'qrcode'
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                              : 'border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-2 mb-1">
+                            <span className="text-lg">📷</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-300 text-sm">QR Code</span>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Escaneie o código</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setWaMethod('phone')}
+                          className={`p-4 rounded-xl border-2 transition ${
+                            waMethod === 'phone'
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                              : 'border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-2 mb-1">
+                            <span className="text-lg">📱</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-300 text-sm">Telefone</span>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Use seu número</p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Phone number input */}
+                    {waMethod === 'phone' && (
+                      <div>
+                        <label htmlFor="waPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Seu número WhatsApp
+                        </label>
+                        <div className="flex">
+                          <span className="inline-flex items-center px-3 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-sm border border-r-0 border-gray-300 dark:border-gray-600 rounded-l-lg">
+                            +55
+                          </span>
+                          <input
+                            type="tel"
+                            id="waPhone"
+                            value={waPhone.replace(/\D/g, '').replace(/^(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3')}
+                            onChange={(e) => setWaPhone(e.target.value.replace(/\D/g, ''))}
+                            maxLength={16}
+                            className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-r-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                            placeholder="(11) 99999-9999"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Connect button */}
+                    <button
+                      onClick={async () => {
+                        setWaError('')
+                        setWaLoading(true)
+                        try {
+                          if (waMethod === 'qrcode') {
+                            const result = await whatsappService.connectWithQRCode({
+                              name: bot.nome,
+                              qrcode: true,
+                            })
+                            if (result.qrcode) {
+                              setWaQrCode(result.qrcode)
+                              setWaStatus('qrcode')
+                              startWaStatusPoll(bot.nome, bot.id)
+                            } else if (result.status === ConnectionStatus.CONNECTED) {
+                              await botsService.resume(bot.id)
+                              await fetchBots()
+                              setWaStatus('connected')
+                              setWaSuccess(true)
+                              setTimeout(() => navigate('/dashboard'), 2000)
+                            }
+                          } else {
+                            const cleanPhone = waPhone.replace(/\D/g, '')
+                            if (cleanPhone.length < 10) {
+                              setWaError('Número de telefone inválido')
+                              return
+                            }
+                            const fullPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone
+                            const result = await whatsappService.connectWithPhone({
+                              instance_name: bot.nome,
+                              phone_number: fullPhone,
+                            })
+                            setWaPairingCode(result.pairing_code || JSON.stringify(result))
+                            setWaStatus('pairing')
+                            startWaStatusPoll(bot.nome, bot.id)
+                          }
+                        } catch (err: any) {
+                          setWaError(err?.response?.data?.error?.message || 'Erro ao conectar. Tente novamente.')
+                        } finally {
+                          setWaLoading(false)
+                        }
+                      }}
+                      disabled={waLoading || (waMethod === 'phone' && waPhone.length < 10)}
+                      className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {waLoading ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : null}
+                      {waMethod === 'qrcode' ? 'Conectar via QR Code' : 'Conectar via Telefone'}
+                    </button>
+                  </>
+                )}
+
+                {/* QR Code display */}
+                {waStatus === 'qrcode' && waQrCode && (
+                  <div className="text-center">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Escaneie o QR Code</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Abra o WhatsApp no celular e escaneie o código
+                    </p>
+                    <div className="inline-block p-4 bg-white rounded-xl shadow-lg border border-gray-200 dark:border-gray-600 mb-4">
+                      <img src={`data:image/png;base64,${waQrCode}`} alt="QR Code" className="w-56 h-56" />
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      Aguardando conexão...
+                      <span className={`ml-2 font-mono ${waTimeLeft <= 30 ? 'text-red-500 font-bold' : ''}`}>
+                        {Math.floor(waTimeLeft / 60)}:{(waTimeLeft % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleWaReset}
+                      className="mt-4 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                {/* Pairing code display */}
+                {waStatus === 'pairing' && waPairingCode && (
+                  <div className="text-center">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Digite o código no WhatsApp</h4>
+                    <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 mb-4">
+                      <ol className="text-left text-sm text-gray-700 dark:text-gray-300 space-y-1.5">
+                        <li className="flex gap-2"><span className="font-bold text-purple-600 dark:text-purple-400">1.</span> Abra o WhatsApp no celular</li>
+                        <li className="flex gap-2"><span className="font-bold text-purple-600 dark:text-purple-400">2.</span> Acesse <strong>Dispositivos conectados</strong></li>
+                        <li className="flex gap-2"><span className="font-bold text-purple-600 dark:text-purple-400">3.</span> Toque em <strong>Vincular um telefone</strong></li>
+                        <li className="flex gap-2"><span className="font-bold text-purple-600 dark:text-purple-400">4.</span> Digite o código abaixo:</li>
+                      </ol>
+                    </div>
+                    <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/30 rounded-xl border border-purple-200 dark:border-purple-700">
+                      <p className="text-3xl font-mono font-bold text-purple-700 dark:text-purple-400 tracking-wider">{waPairingCode}</p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      Aguardando conexão...
+                      <span className={`ml-2 font-mono ${waTimeLeft <= 30 ? 'text-red-500 font-bold' : ''}`}>
+                        {Math.floor(waTimeLeft / 60)}:{(waTimeLeft % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleWaReset}
+                      className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                {/* Error state */}
+                {waStatus === 'error' && (
+                  <div className="text-center">
+                    <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg mb-4">
+                      <p className="text-sm text-red-600 dark:text-red-400">{waError || 'Erro na conexão'}</p>
+                    </div>
+                    <button
+                      onClick={handleWaReset}
+                      className="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium"
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

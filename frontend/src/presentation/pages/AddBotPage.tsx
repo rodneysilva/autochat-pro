@@ -109,7 +109,19 @@ export default function AddBotPage() {
       try {
         const statusResult = await whatsappService.getStatus(instance)
 
-        if (statusResult.connected) {
+        let isConnected = statusResult.connected
+
+        // Fallback: checkPhoneStatus if primary doesn't detect connected
+        if (!isConnected) {
+          try {
+            const phoneResult = await whatsappService.checkPhoneStatus(instance)
+            if ((phoneResult.status as string) !== 'pairing' && (phoneResult.status as string) !== 'disconnected') {
+              isConnected = true
+            }
+          } catch {}
+        }
+
+        if (isConnected) {
           setStatus('connected')
           clearInterval(interval)
           setQrCode(null)
