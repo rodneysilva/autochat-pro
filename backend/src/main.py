@@ -56,6 +56,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         from src.infrastructure.database.seeds import run_seed_if_empty
         await run_seed_if_empty(MongoDB.get_database())
 
+        # Inicializar MessageProcessor (webhook → IA → resposta)
+        try:
+            from src.infrastructure.repositories.bot_repository_impl import MongoBotRepository
+            from src.infrastructure.external_services.whatsapp import get_whatsapp_service
+            from src.application.services.message_processor import init_message_processor
+
+            bot_repo = MongoBotRepository(MongoDB.get_database())
+            whatsapp_svc = get_whatsapp_service()
+            init_message_processor(bot_repo, whatsapp_svc)
+            logger.info("✅ MessageProcessor inicializado")
+        except Exception as e:
+            logger.error(f"⚠️ Erro ao inicializar MessageProcessor: {e}")
+
     except Exception as e:
         logger.error(f"❌ Erro ao conectar MongoDB: {e}")
 

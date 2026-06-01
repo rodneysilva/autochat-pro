@@ -558,25 +558,42 @@ async def get_instance_status(
 @router.post(
     "/webhook/{instance_name}",
     summary="Receber webhook WhatsApp",
-    description="Endpoint que recebe eventos da Evolution API.",
+    description="Endpoint que recebe eventos da Evolution API e processa mensagens com IA.",
 )
 async def receive_webhook(
     instance_name: str,
     event: dict,
-    whatsapp: EvolutionWhatsAppService = Depends(get_whatsapp),
 ):
     """
-    Recebe webhooks da Evolution API.
+    Recebe webhooks da Evolution API e processa mensagens automaticamente.
 
     Eventos possíveis:
-    - messages: Nova mensagem recebida
-    - messages.update: Status da mensagem
+    - messages.upsert: Nova mensagem recebida → processa com IA
+    - messages.update: Status da mensagem (entregue, lido, etc.)
     - presence: Presença do contato
-    - etc.
+
+    Este endpoint NÃO exige autenticação (é callback da Evolution API).
     """
-    logger.info(f"Webhook recebido para {instance_name}: {event.get('event', 'unknown')}")
+    event_type = event.get("event", "unknown")
+    logger.info(f"Webhook recebido para {instance_name}: {event_type}")
 
-    # Processar evento (implementar lógica específica)
-    # Aqui você pode: salvar mensagem, atualizar status, etc.
+    # Processar apenas mensagens novas
+    if event_type == "messages.upsert":
+        try:
+            from src.application.services.message_processor import get_message_processor
 
-    return {"status": "received"}
+            processor = get_message_processor()
+            if processor:
+                response_id = await processor.process_incoming_message(
+                    instance_name, event
+                )
+                if response_id:
+                    logger.info(
+                        f"Webhook processado: resposta enviada (msg_id={response_id})"
+                    )
+            else:
+                logger.warning("MessageProcessor não inicializado")
+        except Exception as e:
+            logger.error(f"Erro ao processar webhook: {e}", exc_info=True)
+
+    return {"status": "received", "event": event_type}

@@ -404,3 +404,7 @@ class MongoBotRepository(BotRepository):
         )
 
         return await self.find_by_id(str(bot_id))
+
+    async def buscar_por_nome_instancia(self, instance_name: str) -> Optional[Bot]:
+        """Busca bot pelo nome da instância (bridge)."""
+        return await self.find_by_instance_name(instance_name)
