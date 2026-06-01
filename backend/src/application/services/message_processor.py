@@ -17,9 +17,20 @@ logger = get_logger(__name__)
 class MessageProcessor:
     """Processa mensagens recebidas via webhook e gera respostas."""
 
-    def __init__(self, bot_repository, evolution_service: EvolutionWhatsAppService):
+    def __init__(self, bot_repository, automation_rule_repository=None, evolution_service: EvolutionWhatsAppService = None):
         self._bot_repo = bot_repository
+        self._automation_repo = automation_rule_repository
         self._whatsapp = evolution_service
+        self._context_service = None
+        self._llm_service = None
+
+    def set_context_service(self, context_service):
+        """Define o serviço de contexto de conversa."""
+        self._context_service = context_service
+
+    def set_llm_service(self, llm_service):
+        """Define o serviço LLM unificado."""
+        self._llm_service = llm_service
 
     async def process_incoming_message(self, instance_name: str, event: dict) -> Optional[str]:
         """
@@ -84,7 +95,7 @@ class MessageProcessor:
             # Gerar resposta
             if bot.llm_config.ativado:
                 response_text = await self._generate_llm_response(
-                    bot, message_text, push_name
+                    bot, message_text, push_name, phone_number
                 )
             elif bot.mensagem_resposta_padrao:
                 response_text = bot.mensagem_resposta_padrao.replace(
@@ -180,34 +191,100 @@ class MessageProcessor:
             return None
 
     async def _generate_llm_response(
-        self, bot, message_text: str, sender_name: str
+        self, bot, message_text: str, sender_name: str, phone_number: str = ""
     ) -> Optional[str]:
-        """Gera resposta usando a IA GLM."""
+        """Gera resposta usando LLM (multi-provider com contexto de conversa)."""
         try:
-            from src.infrastructure.external_services.llm.glm_service import get_glm_service
+            from src.infrastructure.external_services.llm.llm_service import (
+                LLMProvider, get_llm_service, DEFAULT_MODELS,
+            )
+            from src.application.services.conversation_context import get_context_service
 
-            glm = get_glm_service()
+            llm = self._llm_service or get_llm_service()
+            ctx_svc = self._context_service or get_context_service()
+
+            # Determinar provider e modelo
+            provider_name = getattr(bot.llm_config, 'provider', 'glm') or 'glm'
+            try:
+                provider = LLMProvider(provider_name)
+            except ValueError:
+                provider = LLMProvider.GLM
+
+            model = bot.llm_config.modelo or DEFAULT_MODELS.get(provider, "glm-4")
 
             # Construir system prompt personalizado
             system_prompt = bot.llm_config.system_prompt
-            if system_prompt and "{nome}" not in system_prompt:
-                system_prompt = (
-                    f"Contexto: O cliente se chama {sender_name}.\n\n"
-                    f"{system_prompt}"
+            if ctx_svc and system_prompt:
+                system_prompt = ctx_svc.build_system_prompt(
+                    base_prompt=system_prompt,
+                    bot_name=bot.nome,
                 )
+                if sender_name and sender_name != "Cliente":
+                    system_prompt += f"\n\nO cliente se chama {sender_name}."
 
-            response = await glm.generate_response(
-                user_message=message_text,
-                system_prompt=system_prompt or "Você é um assistente de atendimento ao cliente amigável e profissional.",
-                model=bot.llm_config.modelo,
-                temperature=bot.llm_config.temperatura,
-                max_tokens=bot.llm_config.max_tokens,
+            # Buscar contexto de conversa se disponível
+            context_messages = []
+            max_ctx = getattr(bot.llm_config, 'max_context_messages', 20) or 20
+
+            if ctx_svc and phone_number:
+                try:
+                    from src.infrastructure.database.mongodb import MongoDB
+                    db = MongoDB.get_database()
+                    from bson import ObjectId
+                    conversations = await db.conversations.find(
+                        {
+                            "bot_id": ObjectId(str(bot.id)),
+                            "customer.id": phone_number,
+                            "status": {"$in": ["active", "waiting"]},
+                        }
+                    ).sort("updated_at", -1).limit(1).to_list(1)
+
+                    if conversations:
+                        conv_id = str(conversations[0]["_id"])
+                        context_messages = await ctx_svc.get_context_messages(
+                            conversation_id=conv_id,
+                            bot_system_prompt="",
+                            max_tokens=3000,
+                            max_messages=max_ctx,
+                        )
+                        logger.info(f"Contexto: {len(context_messages)} mensagens de histórico")
+                except Exception as e:
+                    logger.debug(f"Sem contexto de conversa: {e}")
+
+            # Adicionar mensagem atual do usuário
+            context_messages.append({"role": "user", "content": message_text})
+
+            # Chamar LLM unificado
+            response = await llm.chat(
+                provider=provider,
+                model=model,
+                messages=context_messages,
+                system_prompt=system_prompt or None,
+                temperature=bot.llm_config.temperatura or 0.7,
+                max_tokens=bot.llm_config.max_tokens or 2048,
             )
 
             return response.strip()
+
         except Exception as e:
             logger.error(f"Erro ao gerar resposta LLM: {e}")
-            # Fallback para mensagem padrão se houver
+            # Fallback: tentar GLM legado
+            try:
+                from src.infrastructure.external_services.llm.glm_service import get_glm_service
+                glm = get_glm_service()
+                sp = bot.llm_config.system_prompt or "Você é um assistente de atendimento ao cliente amigável e profissional."
+                if sender_name and sender_name != "Cliente":
+                    sp = f"Contexto: O cliente se chama {sender_name}.\n\n{sp}"
+                response = await glm.generate_response(
+                    user_message=message_text,
+                    system_prompt=sp,
+                    model=bot.llm_config.modelo,
+                    temperature=bot.llm_config.temperatura,
+                    max_tokens=bot.llm_config.max_tokens,
+                )
+                return response.strip()
+            except Exception as fallback_err:
+                logger.error(f"Fallback GLM também falhou: {fallback_err}")
             if bot.mensagem_resposta_padrao:
                 return bot.mensagem_resposta_padrao
             return None
@@ -261,8 +338,8 @@ def get_message_processor() -> Optional[MessageProcessor]:
     return _processor
 
 
-def init_message_processor(bot_repository, evolution_service) -> MessageProcessor:
+def init_message_processor(bot_repository, automation_rule_repository=None, evolution_service=None) -> MessageProcessor:
     """Inicializa o MessageProcessor global."""
     global _processor
-    _processor = MessageProcessor(bot_repository, evolution_service)
+    _processor = MessageProcessor(bot_repository, automation_rule_repository, evolution_service)
     return _processor

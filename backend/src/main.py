@@ -59,13 +59,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         # Inicializar MessageProcessor (webhook → IA → resposta)
         try:
             from src.infrastructure.repositories.bot_repository_impl import MongoBotRepository
+            from src.infrastructure.repositories.automation_rule_repository_impl import MongoAutomationRuleRepository
             from src.infrastructure.external_services.whatsapp import get_whatsapp_service
             from src.application.services.message_processor import init_message_processor
 
             bot_repo = MongoBotRepository(MongoDB.get_database())
+            automation_repo = MongoAutomationRuleRepository(MongoDB.get_database())
             whatsapp_svc = get_whatsapp_service()
-            init_message_processor(bot_repo, whatsapp_svc)
+            init_message_processor(bot_repo, automation_repo, whatsapp_svc)
             logger.info("✅ MessageProcessor inicializado")
+
+            # Inicializar serviços LLM avançados
+            try:
+                from src.infrastructure.external_services.llm.llm_service import init_llm_service
+                from src.infrastructure.repositories.message_repository_impl import MongoMessageRepository
+                from src.application.services.conversation_context import init_context_service
+
+                llm_svc = init_llm_service()
+                msg_repo = MongoMessageRepository(MongoDB.get_database())
+                ctx_svc = init_context_service(msg_repo)
+
+                processor = get_message_processor()
+                if processor:
+                    processor.set_llm_service(llm_svc)
+                    processor.set_context_service(ctx_svc)
+                logger.info("✅ LLM Service e ConversationContext inicializados")
+            except Exception as e:
+                logger.error(f"⚠️ Erro ao inicializar LLM avançado: {e}")
         except Exception as e:
             logger.error(f"⚠️ Erro ao inicializar MessageProcessor: {e}")
 
@@ -228,12 +248,14 @@ def criar_aplicacao() -> FastAPI:
         return {"status": "healthy"}
 
     # Registro de rotas da API v1
-    from src.api.v1.endpoints import auth_router, whatsapp_router, bots_router, dashboard_router
+    from src.api.v1.endpoints import auth_router, whatsapp_router, bots_router, dashboard_router, automations_router, chat_router
 
     app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
     app.include_router(whatsapp_router, prefix=settings.API_V1_PREFIX)
     app.include_router(bots_router, prefix=settings.API_V1_PREFIX)
     app.include_router(dashboard_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(automations_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(chat_router, prefix=settings.API_V1_PREFIX)
 
     return app
 

@@ -12,6 +12,7 @@ import BotConfigPage from './presentation/pages/BotConfigPage'
 import ConversationsPage from './presentation/pages/ConversationsPage'
 import ContactsPage from './presentation/pages/ContactsPage'
 import PricingPage from './presentation/pages/PricingPage'
+import AutomationsPage from './presentation/pages/AutomationsPage'
 import MainLayout from './presentation/layouts/MainLayout'
 import { ProtectedRoute } from './presentation/components/ProtectedRoute'
 
@@ -106,7 +107,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<PlaceholderPage title="Automações" description="Crie regras de automação, respostas automáticas e fluxos de conversa. Esta funcionalidade estará disponível em breve." />} />
+          <Route index element={<AutomationsPage />} />
         </Route>
 
         <Route
