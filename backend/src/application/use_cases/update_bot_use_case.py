@@ -59,6 +59,8 @@ class UpdateBotUseCase:
         # LLM Config
         if request.llm_ativado is not None:
             bot.llm_config.ativado = request.llm_ativado
+        if request.llm_provider is not None:
+            bot.llm_config.provider = request.llm_provider
         if request.llm_modelo is not None:
             bot.llm_config.modelo = request.llm_modelo
         if request.llm_temperatura is not None:
@@ -67,6 +69,8 @@ class UpdateBotUseCase:
             bot.llm_config.max_tokens = request.llm_max_tokens
         if request.llm_system_prompt is not None:
             bot.llm_config.system_prompt = request.llm_system_prompt
+        if request.llm_max_context_messages is not None:
+            bot.llm_config.max_context_messages = request.llm_max_context_messages
 
         bot.atualizado_em = datetime.utcnow()
 

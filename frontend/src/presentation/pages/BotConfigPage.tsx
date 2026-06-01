@@ -33,10 +33,12 @@ export default function BotConfigPage() {
 
   // LLM Config
   const [llmAtivado, setLlmAtivado] = useState(false)
+  const [llmProvider, setLlmProvider] = useState('glm')
   const [llmModelo, setLlmModelo] = useState('glm-4-flash')
   const [llmTemperatura, setLlmTemperatura] = useState(0.7)
   const [llmMaxTokens, setLlmMaxTokens] = useState(2048)
   const [llmSystemPrompt, setLlmSystemPrompt] = useState('')
+  const [llmMaxContextMessages, setLlmMaxContextMessages] = useState(20)
 
   useEffect(() => {
     fetchBots()
@@ -61,10 +63,12 @@ export default function BotConfigPage() {
       setWhMensagemFora(bot.working_hours?.mensagem_fora_horario || '')
 
       setLlmAtivado(bot.llm_config?.ativado || false)
+      setLlmProvider(bot.llm_config?.provider || 'glm')
       setLlmModelo(bot.llm_config?.modelo || 'glm-4-flash')
       setLlmTemperatura(bot.llm_config?.temperatura ?? 0.7)
       setLlmMaxTokens(bot.llm_config?.max_tokens || 2048)
       setLlmSystemPrompt(bot.llm_config?.system_prompt || '')
+      setLlmMaxContextMessages(bot.llm_config?.max_context_messages || 20)
 
       setLoading(false)
     }
@@ -93,10 +97,12 @@ export default function BotConfigPage() {
         data.working_hours_mensagem_fora = whMensagemFora
       } else if (activeTab === 'ia') {
         data.llm_ativado = llmAtivado
+        data.llm_provider = llmProvider
         data.llm_modelo = llmModelo
         data.llm_temperatura = llmTemperatura
         data.llm_max_tokens = llmMaxTokens
         data.llm_system_prompt = llmSystemPrompt
+        data.llm_max_context_messages = llmMaxContextMessages
       }
 
       const result = await botsService.update(botId, data)
@@ -120,7 +126,7 @@ export default function BotConfigPage() {
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'mensagens', label: 'Mensagens', icon: '💬' },
     { key: 'horario', label: 'Horário', icon: '🕐' },
-    { key: 'ia', label: 'IA (GLM)', icon: '⚡' },
+    { key: 'ia', label: 'IA (LLM)', icon: '⚡' },
   ]
 
   const statusColor: Record<string, string> = {
@@ -469,15 +475,15 @@ export default function BotConfigPage() {
         </div>
       )}
 
-      {/* Tab: IA (GLM) */}
+      {/* Tab: IA (LLM) */}
       {activeTab === 'ia' && (
         <div className="space-y-6">
           {/* Card principal */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 lg:p-6 space-y-6">
             <div>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Inteligência Artificial (GLM)</h3>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Inteligência Artificial (LLM)</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Ative a IA GLM para respostas inteligentes e automáticas. O bot usará seu prompt de sistema para entender o contexto e responder aos clientes.
+                Ative a IA para respostas inteligentes e automáticas. Escolha o provedor, modelo e personalize o comportamento.
               </p>
             </div>
 
@@ -486,7 +492,7 @@ export default function BotConfigPage() {
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">Ativar respostas com IA</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  O bot usará a IA GLM para gerar respostas personalizadas
+                  O bot usará a IA para gerar respostas personalizadas
                 </p>
               </div>
               <button
@@ -501,61 +507,44 @@ export default function BotConfigPage() {
 
             {llmAtivado && (
               <>
-                {/* System Prompt */}
-                <div>
-                  <label htmlFor="llmPrompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    🧠 Prompt do Sistema
-                  </label>
-                  <textarea
-                    id="llmPrompt"
-                    rows={8}
-                    value={llmSystemPrompt}
-                    onChange={(e) => setLlmSystemPrompt(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-y font-mono text-sm"
-                    placeholder={`Você é um assistente de atendimento ao cliente da empresa XYZ.\n\nRegras:\n- Seja sempre educado e profissional\n- Responda em português brasileiro\n- Se não souber a resposta, diga que vai transferir para um humano\n- Não invente informações sobre preços ou prazos`}
-                  />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    💡 Este prompt define a personalidade e o comportamento do bot. Quanto mais detalhado, melhores as respostas.
-                  </p>
-                  <details className="mt-2">
-                    <summary className="text-xs text-purple-600 dark:text-purple-400 cursor-pointer hover:underline">
-                      Ver exemplos de prompt
-                    </summary>
-                    <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-xs text-gray-600 dark:text-gray-400 space-y-3">
-                      <div>
-                        <p className="font-medium text-purple-700 dark:text-purple-300">🛒 E-commerce</p>
-                        <pre className="mt-1 whitespace-pre-wrap">{`Você é um assistente de atendimento da Loja XYZ, uma loja de eletrônicos online.
+                {/* Provider e Modelo */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="llmProvider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      🏢 Provedor LLM
+                    </label>
+                    <select
+                      id="llmProvider"
+                      value={llmProvider}
+                      onChange={(e) => {
+                        setLlmProvider(e.target.value)
+                        // Reset modelo para default do provider
+                        const defaults: Record<string, string> = {
+                          glm: 'glm-4-flash',
+                          openai: 'gpt-4o-mini',
+                          anthropic: 'claude-sonnet-4-20250514',
+                          ollama: 'llama3',
+                        }
+                        setLlmModelo(defaults[e.target.value] || 'glm-4-flash')
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="glm">🇨🇳 GLM (Z.AI) — Padrão</option>
+                      <option value="openai">🟢 OpenAI (GPT)</option>
+                      <option value="anthropic">🟠 Anthropic (Claude)</option>
+                      <option value="ollama">🖥️ Ollama (Local)</option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {llmProvider === 'glm' && 'GLM-4 da Z.AI. Rápido e gratuito via API configurada.'}
+                      {llmProvider === 'openai' && 'GPT-4o, GPT-4o-mini da OpenAI. Requer API Key.'}
+                      {llmProvider === 'anthropic' && 'Claude Sonnet, Claude Haiku da Anthropic. Requer API Key.'}
+                      {llmProvider === 'ollama' && 'Modelos locais via Ollama. Requer Ollama rodando em localhost:11434.'}
+                    </p>
+                  </div>
 
-Regras:
-- Seja amigável e prestativo
-- Responda sobre produtos, preços e prazos de entrega
-- Prazo padrão: 3-7 dias úteis para SP, 7-15 para outras capitais
-- Frete grátis acima de R$ 299
-- Trocas em até 30 dias com produto em perfeitas condições
-- Se o cliente pedir para falar com humano, diga que vai transferir
-- Não invente preços — se não souber, pergunte qual produto`}</pre>
-                      </div>
-                      <div>
-                        <p className="font-medium text-purple-700 dark:text-purple-300">🍕 Restaurante</p>
-                        <pre className="mt-1 whitespace-pre-wrap">{`Você é o assistente virtual do Restaurante ABC, especializado em comida italiana.
-
-Regras:
-- Funcionamos de terça a domingo, 11h às 22h
-- Cardápio especial: pizzas a partir de R$ 35, massas a partir de R$ 28
-- Aceitamos PIX, cartão e dinheiro na entrega
-- Taxa de entrega: R$ 8 (até 5km), R$ 12 (5-10km)
-- Tempo de entrega: 30-50 minutos
-- Se o cliente quiser reservar mesa, peça nome, telefone e data/hora`}</pre>
-                      </div>
-                    </div>
-                  </details>
-                </div>
-
-                {/* Modelo e parâmetros */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label htmlFor="llmModelo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Modelo
+                      🤖 Modelo
                     </label>
                     <select
                       id="llmModelo"
@@ -563,18 +552,49 @@ Regras:
                       onChange={(e) => setLlmModelo(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                      <option value="glm-4-flash">GLM-4 Flash (rápido)</option>
-                      <option value="glm-4">GLM-4 (equilibrado)</option>
-                      <option value="glm-4-plus">GLM-4 Plus (preciso)</option>
+                      {llmProvider === 'glm' && (
+                        <>
+                          <option value="glm-4-flash">GLM-4 Flash (rápido)</option>
+                          <option value="glm-4">GLM-4 (equilibrado)</option>
+                          <option value="glm-4-plus">GLM-4 Plus (preciso)</option>
+                          <option value="glm-4-long">GLM-4 Long (grande contexto)</option>
+                        </>
+                      )}
+                      {llmProvider === 'openai' && (
+                        <>
+                          <option value="gpt-4o-mini">GPT-4o-mini (rápido, econômico)</option>
+                          <option value="gpt-4o">GPT-4o (potente)</option>
+                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (legado)</option>
+                        </>
+                      )}
+                      {llmProvider === 'anthropic' && (
+                        <>
+                          <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (mais recente)</option>
+                          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                          <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (rápido)</option>
+                          <option value="claude-3-haiku-20240307">Claude 3 Haiku (econômico)</option>
+                        </>
+                      )}
+                      {llmProvider === 'ollama' && (
+                        <>
+                          <option value="llama3">Llama 3</option>
+                          <option value="llama3.1">Llama 3.1</option>
+                          <option value="mistral">Mistral</option>
+                          <option value="gemma2">Gemma 2</option>
+                          <option value="phi3">Phi-3</option>
+                          <option value="qwen2">Qwen 2</option>
+                        </>
+                      )}
                     </select>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Flash = respostas mais rápidas. Plus = mais preciso.
-                    </p>
                   </div>
+                </div>
 
+                {/* Temperatura e Max Tokens */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="llmTemperatura" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Temperatura: {llmTemperatura.toFixed(1)}
+                      🌡️ Temperatura: {llmTemperatura.toFixed(1)}
                     </label>
                     <input
                       id="llmTemperatura"
@@ -587,17 +607,17 @@ Regras:
                       className="w-full mt-2 accent-purple-600"
                     />
                     <div className="flex justify-between text-xs text-gray-400 mt-1">
-                      <span>Preciso</span>
-                      <span>Criativo</span>
+                      <span>Preciso (0.0)</span>
+                      <span>Criativo (1.0)</span>
                     </div>
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      💡 0.1-0.3 = respostas objetivas. 0.7-1.0 = respostas mais criativas e variadas.
+                      💡 0.1-0.3 = respostas objetivas. 0.7-1.0 = mais criativas e variadas.
                     </p>
                   </div>
 
                   <div>
                     <label htmlFor="llmMaxTokens" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Limite de tokens
+                      📏 Limite de tokens
                     </label>
                     <select
                       id="llmMaxTokens"
@@ -615,13 +635,80 @@ Regras:
                     </p>
                   </div>
                 </div>
+
+                {/* Max Context Messages */}
+                <div>
+                  <label htmlFor="llmMaxContext" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    💬 Mensagens de contexto
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="llmMaxContext"
+                      type="range"
+                      min="2"
+                      max="50"
+                      step="2"
+                      value={llmMaxContextMessages}
+                      onChange={(e) => setLlmMaxContextMessages(parseInt(e.target.value))}
+                      className="flex-1 accent-purple-600"
+                    />
+                    <span className="text-sm font-mono text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 px-3 py-1.5 rounded-lg min-w-[3rem] text-center">
+                      {llmMaxContextMessages}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    💡 Quantas mensagens do histórico da conversa enviar para a IA como contexto. Mais mensagens = mais contexto, mas mais tokens consumidos.
+                    Estimativa: ~{Math.round(llmMaxContextMessages * 30)} tokens (~{Math.round(llmMaxContextMessages * 120)} chars).
+                  </p>
+                </div>
+
+                {/* System Prompt */}
+                <div>
+                  <label htmlFor="llmPrompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    🧠 Prompt do Sistema
+                  </label>
+                  <textarea
+                    id="llmPrompt"
+                    rows={8}
+                    value={llmSystemPrompt}
+                    onChange={(e) => setLlmSystemPrompt(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-y font-mono text-sm"
+                    placeholder={`Você é um assistente de atendimento ao cliente da empresa XYZ.\n\nRegras:\n- Seja sempre educado e profissional\n- Responda em português brasileiro\n- Se não souber a resposta, diga que vai transferir para um humano\n- Não invente informações sobre preços ou prazos`}
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    💡 Define a personalidade e comportamento do bot. Quanto mais detalhado, melhores as respostas.
+                  </p>
+                </div>
+
+                {/* Provider info cards */}
+                {llmProvider !== 'glm' && llmProvider !== 'ollama' && (
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                      🔑 <strong>API Key necessária.</strong> Configure a variável de ambiente{' '}
+                      <code className="px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-800 rounded text-xs">
+                        {llmProvider === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'}
+                      </code>{' '}
+                      no servidor para usar este provedor.
+                    </p>
+                  </div>
+                )}
+
+                {llmProvider === 'ollama' && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-400">
+                      🖥️ <strong>Ollama local.</strong> Certifique-se de que o Ollama está rodando em{' '}
+                      <code className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-800 rounded text-xs">localhost:11434</code>
+                      {' '}e que o modelo selecionado está baixado.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 
             {!llmAtivado && (
               <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                  ⚠️ Com a IA desativada, o bot enviará a <strong>mensagem de resposta padrão</strong> configurada na aba Mensagens para todas as interações.
+                  ⚠️ Com a IA desativada, o bot enviará a <strong>mensagem de resposta padrão</strong> configurada na aba Mensagens.
                 </p>
               </div>
             )}

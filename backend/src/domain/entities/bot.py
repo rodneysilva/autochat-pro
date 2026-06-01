@@ -44,11 +44,13 @@ class ConfiguracaoLLM:
     """Configuração do LLM para o bot."""
 
     ativado: bool = False
+    provider: str = "glm"  # glm, openai, anthropic, ollama
     modelo: str = "glm-4"
     temperatura: float = 0.7
-    max_tokens: int = 500
+    max_tokens: int = 2048
     system_prompt: str = "Você é um assistente de atendimento útil e cordial."
     fallback_para_llm: bool = True
+    max_context_messages: int = 20  # Max mensagens de contexto para o LLM
 
 
 @dataclass

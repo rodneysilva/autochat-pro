@@ -59,11 +59,13 @@ class MongoBotRepository(BotRepository):
         llm_data = doc.get("llm_config", {})
         llm_config = ConfiguracaoLLM(
             ativado=llm_data.get("ativado", False),
+            provider=llm_data.get("provider", "glm"),
             modelo=llm_data.get("modelo", "glm-4"),
             temperatura=llm_data.get("temperatura", 0.7),
-            max_tokens=llm_data.get("max_tokens", 500),
+            max_tokens=llm_data.get("max_tokens", 2048),
             system_prompt=llm_data.get("system_prompt", ""),
             fallback_para_llm=llm_data.get("fallback_para_llm", True),
+            max_context_messages=llm_data.get("max_context_messages", 20),
         )
 
         # Catálogo
@@ -151,11 +153,13 @@ class MongoBotRepository(BotRepository):
             },
             "llm_config": {
                 "ativado": bot.llm_config.ativado,
+                "provider": bot.llm_config.provider,
                 "modelo": bot.llm_config.modelo,
                 "temperatura": bot.llm_config.temperatura,
                 "max_tokens": bot.llm_config.max_tokens,
                 "system_prompt": bot.llm_config.system_prompt,
                 "fallback_para_llm": bot.llm_config.fallback_para_llm,
+                "max_context_messages": bot.llm_config.max_context_messages,
             },
             "catalogo": {
                 "ativado": bot.catalogo.ativado,

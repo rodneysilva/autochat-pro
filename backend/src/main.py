@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             from src.infrastructure.repositories.bot_repository_impl import MongoBotRepository
             from src.infrastructure.repositories.automation_rule_repository_impl import MongoAutomationRuleRepository
             from src.infrastructure.external_services.whatsapp import get_whatsapp_service
-            from src.application.services.message_processor import init_message_processor
+            from src.application.services.message_processor import init_message_processor, get_message_processor
 
             bot_repo = MongoBotRepository(MongoDB.get_database())
             automation_repo = MongoAutomationRuleRepository(MongoDB.get_database())
@@ -72,12 +72,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             # Inicializar serviços LLM avançados
             try:
                 from src.infrastructure.external_services.llm.llm_service import init_llm_service
-                from src.infrastructure.repositories.message_repository_impl import MongoMessageRepository
                 from src.application.services.conversation_context import init_context_service
 
                 llm_svc = init_llm_service()
-                msg_repo = MongoMessageRepository(MongoDB.get_database())
-                ctx_svc = init_context_service(msg_repo)
+                ctx_svc = init_context_service(MongoDB.get_database())
 
                 processor = get_message_processor()
                 if processor:

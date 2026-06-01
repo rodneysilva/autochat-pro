@@ -47,10 +47,12 @@ class AtualizarBotRequest(BaseModel):
 
     # LLM Config
     llm_ativado: Optional[bool] = None
+    llm_provider: Optional[str] = None
     llm_modelo: Optional[str] = None
     llm_temperatura: Optional[float] = None
     llm_max_tokens: Optional[int] = None
     llm_system_prompt: Optional[str] = None
+    llm_max_context_messages: Optional[int] = None
 
 
 class ConfigurarWhatsAppRequest(BaseModel):
@@ -103,11 +105,13 @@ class WorkingHoursResponse(BaseModel):
 
 class LLMConfigResponse(BaseModel):
     ativado: bool
+    provider: str = "glm"
     modelo: str
     temperatura: float
     max_tokens: int
     system_prompt: str
     fallback_para_llm: bool
+    max_context_messages: int = 20
 
 
 class CatalogoItemResponse(BaseModel):
@@ -223,11 +227,13 @@ def bot_to_response(bot) -> BotResponse:
         ),
         llm_config=LLMConfigResponse(
             ativado=bot.llm_config.ativado,
+            provider=bot.llm_config.provider,
             modelo=bot.llm_config.modelo,
             temperatura=bot.llm_config.temperatura,
             max_tokens=bot.llm_config.max_tokens,
             system_prompt=bot.llm_config.system_prompt,
             fallback_para_llm=bot.llm_config.fallback_para_llm,
+            max_context_messages=bot.llm_config.max_context_messages,
         ),
         catalogo=CatalogoResponse(
             ativado=bot.catalogo.ativado,

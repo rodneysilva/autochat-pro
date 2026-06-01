@@ -102,13 +102,28 @@ class Settings(BaseSettings):
     TWILIO_PHONE_NUMBER: Optional[str] = Field(default=None, description="Número de telefone do Twilio")
 
     # ========================================
-    # LLM - GLM
+    # LLM - GLM (provider padrão)
     # ========================================
     LLM_API_URL: Optional[str] = Field(default=None, description="URL da API do LLM")
     LLM_API_KEY: Optional[str] = Field(default=None, description="API Key do LLM")
     LLM_MODEL: str = Field(default="glm-4", description="Modelo LLM padrão")
     LLM_TEMPERATURE: float = Field(default=0.7, description="Temperatura padrão do LLM")
-    LLM_MAX_TOKENS: int = Field(default=500, description="Máximo de tokens padrão")
+    LLM_MAX_TOKENS: int = Field(default=2048, description="Máximo de tokens padrão")
+
+    # ========================================
+    # LLM - OpenAI
+    # ========================================
+    OPENAI_API_KEY: Optional[str] = Field(default=None, description="API Key do OpenAI")
+
+    # ========================================
+    # LLM - Anthropic
+    # ========================================
+    ANTHROPIC_API_KEY: Optional[str] = Field(default=None, description="API Key do Anthropic")
+
+    # ========================================
+    # LLM - Ollama (local)
+    # ========================================
+    OLLAMA_URL: str = Field(default="http://localhost:11434", description="URL do Ollama")
 
     # ========================================
     # WhatsApp
