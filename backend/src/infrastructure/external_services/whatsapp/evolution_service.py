@@ -263,34 +263,48 @@ class EvolutionWhatsAppService:
         Conecta usando número de telefone (pairing code).
 
         Evolution API v2 docs:
-        1. POST /instance/create — cria instância (sem number, sem qrcode)
-        2. GET /instance/connect/{instance}?number=559999999999 — retorna pairingCode
+        1. POST /instance/create — cria instância
+        2. GET /instance/connect/{instance}?number=phone — retorna pairingCode
 
-        Args:
-            instance_name: Nome da instância.
-            phone_number: Número com DDI (ex: 5511999999999).
-
-        Returns:
-            Dados com pairingCode.
+        Se a instância já existe e está em 'connecting', retorna o code existente.
         """
         import asyncio
 
-        # Deletar instância existente se houver
+        # Verificar se instância já existe e está em connecting
         try:
             existing = await self.list_instances()
             for inst in existing:
                 if inst.get("name") == instance_name:
-                    logger.info(f"Deletando instância existente {instance_name}")
-                    try:
-                        await self.delete_instance(instance_name)
-                    except Exception:
-                        pass
-                    await asyncio.sleep(3)
+                    state = inst.get("connectionStatus", "")
+                    if state == "open":
+                        # Já conectada!
+                        return {"pairingCode": None, "status": "connected"}
+                    elif state == "connecting":
+                        # Ainda tentando — tentar conectar de novo com o número
+                        logger.info(f"Instância {instance_name} já existe em connecting, reconectando")
+                        result = await self._request(
+                            "GET",
+                            f"/instance/connect/{instance_name}",
+                            params={"number": phone_number},
+                        )
+                        code = result.get("pairingCode")
+                        if code:
+                            logger.info(f"Pairing code: {code}")
+                            return {"pairingCode": code}
+                        return result
+                    else:
+                        # close, error, etc — deletar e recriar
+                        logger.info(f"Instância {instance_name} em estado {state}, deletando")
+                        try:
+                            await self.delete_instance(instance_name)
+                        except Exception:
+                            pass
+                        await asyncio.sleep(3)
                     break
         except Exception:
             pass
 
-        # Passo 1: Criar instância (sem qrcode, sem number)
+        # Criar instância
         try:
             logger.info(f"Criando instância {instance_name}")
             await self._request(
@@ -303,47 +317,26 @@ class EvolutionWhatsAppService:
                 },
             )
         except Exception as e:
-            if "already in use" in str(e).lower():
-                logger.warning(f"Instância {instance_name} ainda existe, aguardando...")
-                await asyncio.sleep(3)
-                # Retry
-                try:
-                    await self.delete_instance(instance_name)
-                    await asyncio.sleep(3)
-                except Exception:
-                    pass
-                try:
-                    await self._request(
-                        "POST",
-                        "/instance/create",
-                        {
-                            "instanceName": instance_name,
-                            "qrcode": False,
-                            "integration": "WHATSAPP-BAILEYS",
-                        },
-                    )
-                except Exception:
-                    pass  # Instância pode já existir em estado aceitável
-            else:
-                pass  # Instância já existe, prosseguir
+            if "already in use" not in str(e).lower():
+                raise
+            logger.warning("Instância já existe, prosseguindo")
 
         await asyncio.sleep(1)
 
-        # Passo 2: Conectar com número — GET /instance/connect/{instance}?number=phone
-        logger.info(f"Conectando instância {instance_name} com telefone {phone_number}")
+        # Conectar com número
+        logger.info(f"Conectando {instance_name} com telefone {phone_number}")
         result = await self._request(
             "GET",
             f"/instance/connect/{instance_name}",
             params={"number": phone_number},
         )
 
-        pairing_code = result.get("pairingCode")
-        if pairing_code:
-            logger.info(f"Pairing code gerado: {pairing_code}")
-            return {"pairingCode": pairing_code}
+        code = result.get("pairingCode")
+        if code:
+            logger.info(f"Pairing code: {code}")
+            return {"pairingCode": code}
 
-        # Se não veio pairing code, retornar o que tiver
-        logger.warning(f"Pairing code não retornado. Response keys: {list(result.keys())}")
+        logger.warning(f"Sem pairing code. Keys: {list(result.keys())}")
         return result
 
         return result
