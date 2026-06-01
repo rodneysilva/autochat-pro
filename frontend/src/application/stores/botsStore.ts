@@ -23,8 +23,10 @@ export interface Bot {
   llm_config: {
     ativado: boolean
     modelo: string
+    provider: string
     temperatura: number
     max_tokens: number
+    max_context_messages: number
     system_prompt: string
     fallback_para_llm: boolean
   }
