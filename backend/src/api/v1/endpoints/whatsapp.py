@@ -251,6 +251,19 @@ async def connect_with_qrcode(
         result = await whatsapp.connect_with_qr(request.name)
         qrcode = await whatsapp.get_qr_code(request.name)
 
+        # Auto-configurar webhook para a instância
+        try:
+            webhook_url = f"http://autochat-backend:8000/api/v1/whatsapp/webhook/{request.name}"
+            await whatsapp.set_webhook(
+                request.name,
+                webhook_url,
+                ["MESSAGES_UPSERT"],
+                False,
+            )
+            logger.info(f"Webhook auto-configurado para {request.name}")
+        except Exception as webhook_err:
+            logger.warning(f"Não foi possível configurar webhook: {webhook_err}")
+
         return InstanceResponse(
             name=request.name,
             status=await whatsapp.get_instance_status(request.name),
@@ -329,6 +342,19 @@ async def connect_with_phone(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={"erro": {"codigo": "PAIRING_FAILED", "mensagem": "Não foi possível gerar o código de pareamento. Tente novamente."}}
             )
+
+        # Auto-configurar webhook para a instância
+        try:
+            webhook_url = f"http://autochat-backend:8000/api/v1/whatsapp/webhook/{request.instance_name}"
+            await whatsapp.set_webhook(
+                request.instance_name,
+                webhook_url,
+                ["MESSAGES_UPSERT"],
+                False,
+            )
+            logger.info(f"Webhook auto-configurado para {request.instance_name}")
+        except Exception as webhook_err:
+            logger.warning(f"Não foi possível configurar webhook: {webhook_err}")
 
         return {
             "instance": request.instance_name,
@@ -575,10 +601,35 @@ async def receive_webhook(
     Este endpoint NÃO exige autenticação (é callback da Evolution API).
     """
     event_type = event.get("event", "unknown")
+    event_data = event.get("data", {})
     logger.info(f"Webhook recebido para {instance_name}: {event_type}")
 
-    # Processar mensagens novas (Evolution API v2 usa MESSAGES_UPSERT)
-    if event_type in ("messages.upsert", "MESSAGES_UPSERT"):
+    # Detectar connection.update -> atualizar status do bot para 'active'
+    if event_type in ("connection.update", "CONNECTION_UPDATE"):
+        try:
+            state = event_data.get("state", "") if isinstance(event_data, dict) else ""
+            if state == "open":
+                from src.infrastructure.repositories.bot_repository_impl import MongoBotRepository
+                from src.infrastructure.database.mongodb import MongoDB
+                from src.domain.entities.bot import StatusBot
+                bot_repo = MongoBotRepository(MongoDB.get_database())
+                bot = await bot_repo.find_by_instance_name(instance_name)
+                if bot and bot.status != StatusBot.ATIVO:
+                    await bot_repo.update_status(str(bot.id), StatusBot.ATIVO)
+                    logger.info(f"Bot {instance_name} status atualizado para 'active'")
+        except Exception as e:
+            logger.warning(f"Não foi possível atualizar status do bot: {e}")
+
+    # Processar mensagens novas - detectar de forma robusta
+    # Evolution API v2: event pode ser "messages.upsert" (lowercase) ou "MESSAGES_UPSERT"
+    # Quando webhook_by_events=false, o evento vem no body["event"]
+    # Quando webhook_by_events=true, o evento pode vir no path da URL
+    # Fallback: detectar pela presença de data.message ou data.messages
+    is_message_event = event_type in ("messages.upsert", "MESSAGES_UPSERT")
+    if not is_message_event and isinstance(event_data, dict):
+        is_message_event = "message" in event_data or "messages" in event_data
+
+    if is_message_event:
         try:
             from src.application.services.message_processor import get_message_processor
 
@@ -601,7 +652,6 @@ async def receive_webhook(
             from src.infrastructure.external_services.whatsapp import get_whatsapp_service
             ws = get_whatsapp_service()
             webhook_url = f"http://autochat-backend:8000/api/v1/whatsapp/webhook/{instance_name}"
-            # Verificar se webhook já está configurado
             existing = await ws.get_webhook(instance_name)
             if not existing or not existing.get("url"):
                 await ws.set_webhook(

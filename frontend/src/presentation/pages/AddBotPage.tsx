@@ -127,24 +127,44 @@ export default function AddBotPage() {
           setQrCode(null)
           setPairingCode(null)
 
-          // Salvar bot no banco de dados (criar ou atualizar status para active)
+          // Salvar bot no banco de dados (criar ou atualizar - apenas uma vez)
           try {
             const { botsService } = await import('../../infrastructure/api/bots.service')
 
-            // Tenta criar o bot primeiro
+            // Primeiro verifica se o bot já existe
+            let botCreated = false
             try {
-              await botsService.create({
-                nome: instance,
-                tipo: 'whatsapp',
-              })
-            } catch (createErr: any) {
-              // Se já existe, tenta atualizar o status para active
               const botsResponse = await botsService.list()
               const existingBot = botsResponse.data.find(
                 (b: any) => b.nome === instance
               )
               if (existingBot) {
+                // Bot já existe, apenas atualiza status para active
                 await botsService.resume(existingBot.id)
+                botCreated = true
+              }
+            } catch (listErr) {
+              console.warn('Erro ao listar bots, tentando criar:', listErr)
+            }
+
+            // Só cria se não encontrou existente
+            if (!botCreated) {
+              try {
+                await botsService.create({
+                  nome: instance,
+                  tipo: 'whatsapp',
+                })
+              } catch (createErr: any) {
+                // Se deu erro ao criar (já existe), tenta atualizar
+                try {
+                  const botsResponse = await botsService.list()
+                  const existingBot = botsResponse.data.find(
+                    (b: any) => b.nome === instance
+                  )
+                  if (existingBot) {
+                    await botsService.resume(existingBot.id)
+                  }
+                } catch {}
               }
             }
           } catch (err) {
