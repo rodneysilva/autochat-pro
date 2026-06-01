@@ -1,188 +1,170 @@
+import { Link } from 'react-router-dom'
+import { useAuthStore } from '../../application/stores'
+
 export default function DashboardPage() {
-  // TODO: Buscar dados reais da API
+  const user = useAuthStore((s) => s.user)
+
   const stats = [
-    {
-      label: 'Bots Ativos',
-      value: '3',
-      change: '+1',
-      color: 'purple',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Conversas Hoje',
-      value: '127',
-      change: '+23',
-      color: 'blue',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Mensagens',
-      value: '1,234',
-      change: '+456',
-      color: 'green',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Taxa de Resposta',
-      value: '94%',
-      change: '+2%',
-      color: 'emerald',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-    },
+    { label: 'Bots Ativos', value: '0', icon: '🤖', color: 'purple' },
+    { label: 'Conversas Hoje', value: '0', icon: '💬', color: 'blue' },
+    { label: 'Mensagens', value: '0', icon: '📨', color: 'green' },
+    { label: 'Resposta IA', value: '-', icon: '⚡', color: 'emerald' },
   ]
 
-  const colorClasses = {
-    purple: 'bg-purple-100 text-purple-600',
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    emerald: 'bg-emerald-100 text-emerald-600',
+  const colorClasses: Record<string, string> = {
+    purple: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
+    blue: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+    green: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
   }
 
-  const recentConversations = [
-    { id: 1, customer: 'João Silva', bot: 'WhatsApp Business', lastMessage: 'Quando entrega?', time: '2 min', unread: 2 },
-    { id: 2, customer: 'Maria Santos', bot: 'Telegram Bot', lastMessage: 'Obrigada!', time: '15 min', unread: 0 },
-    { id: 3, customer: 'Pedro Costa', bot: 'WhatsApp Business', lastMessage: 'Quanto custa?', time: '1 hora', unread: 1 },
-    { id: 4, customer: 'Ana Lima', bot: 'Telegram Bot', lastMessage: 'Produto disponível?', time: '2 horas', unread: 0 },
-    { id: 5, customer: 'Carlos Souza', bot: 'WhatsApp Business', lastMessage: 'Aceito pagamento?', time: '3 horas', unread: 0 },
-  ]
-
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Welcome */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-6 text-white">
+        <h2 className="text-xl font-bold mb-1">
+          Olá, {user?.nome || 'Usuário'}! 👋
+        </h2>
+        <p className="text-purple-100 text-sm">
+          Bem-vindo ao AutoChat Pro. Comece conectando seu primeiro bot WhatsApp.
+        </p>
+      </div>
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 rounded-lg ${colorClasses[stat.color as keyof typeof colorClasses]}`}>
-                {stat.icon}
-              </div>
-              <span className="text-sm font-medium text-green-600">{stat.change}</span>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
-            <p className="text-sm text-gray-600">{stat.label}</p>
+          <div key={stat.label} className={`rounded-xl p-4 lg:p-6 border ${colorClasses[stat.color]}`}>
+            <div className="text-2xl mb-2">{stat.icon}</div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</h3>
+            <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-400">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      {/* Setup Guide - WhatsApp */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-5 lg:p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">🚀 Comece Aqui</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Siga os passos para configurar seu primeiro bot</p>
+        </div>
+
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+          {/* Step 1 */}
+          <div className="p-5 lg:p-6 flex items-start gap-4">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.548-.548-.237 0 0-.579-.657-.853-.967-.273-.31-.548-.099-.548-.099l.001.001c-.452-.198-.922-.361-1.386-.498-.198-.039-.374-.058-.548-.058-.297 0-.688.099-1.097.297-.498.298-.907.696-1.236 1.097-.249.298-.548.597-.896.696-.298.099-.548.199-.847.199-.846 0-1.097-.199-1.595-.597l-1.097.597c.498.796.996 1.593 1.495 2.39l1.495-2.39z"/>
               </svg>
             </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Adicionar Bot</p>
-              <p className="text-sm text-gray-500">WhatsApp ou Telegram</p>
+            <div className="flex-1">
+              <h3 className="font-medium text-gray-900 dark:text-white">1. Conectar WhatsApp</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Crie uma instância e conecte seu WhatsApp via QR Code ou número de telefone.
+              </p>
+              <Link
+                to="/add-bot"
+                className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Adicionar Bot WhatsApp
+              </Link>
             </div>
-          </button>
-          <button className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          </div>
+
+          {/* Step 2 */}
+          <div className="p-5 lg:p-6 flex items-start gap-4 opacity-50">
+            <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Nova Automação</p>
-              <p className="text-sm text-gray-500">Regras de resposta</p>
+            <div className="flex-1">
+              <h3 className="font-medium text-gray-900 dark:text-white">2. Criar Automações</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Configure respostas automáticas, palavras-chave e mensagens de boas-vindas.
+              </p>
+              <span className="inline-block mt-3 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg">
+                Em breve
+              </span>
             </div>
-          </button>
-          <button className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </div>
+
+          {/* Step 3 */}
+          <div className="p-5 lg:p-6 flex items-start gap-4 opacity-50">
+            <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Ver Analytics</p>
-              <p className="text-sm text-gray-500">Relatórios</p>
+            <div className="flex-1">
+              <h3 className="font-medium text-gray-900 dark:text-white">3. Ativar IA</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Integre GLM para respostas inteligentes e atendimento automático 24/7.
+              </p>
+              <span className="inline-block mt-3 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg">
+                Em breve
+              </span>
             </div>
-          </button>
-          <button className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Configurações</p>
-              <p className="text-sm text-gray-500">Ajustes do sistema</p>
-            </div>
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* Recent Conversations */}
-      <div className="bg-white rounded-xl shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Conversas Recentes</h2>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {recentConversations.map((conv) => (
-            <div key={conv.id} className="p-4 hover:bg-gray-50 transition cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                  <span className="text-gray-600 font-medium">{conv.customer.charAt(0)}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium text-gray-900">{conv.customer}</p>
-                    <span className="text-xs text-gray-500">{conv.time}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500 truncate">{conv.lastMessage}</p>
-                    <span className="text-xs text-gray-400">{conv.bot}</span>
-                  </div>
-                </div>
-                {conv.unread > 0 && (
-                  <span className="w-5 h-5 bg-purple-600 text-white text-xs rounded-full flex items-center justify-center">
-                    {conv.unread}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="p-4 border-t border-gray-200">
-          <button className="w-full text-center text-sm text-purple-600 hover:text-purple-700 font-medium">
-            Ver todas as conversas →
-          </button>
-        </div>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Link to="/add-bot" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-green-300 dark:hover:border-green-700 transition">
+          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-3">
+            <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </div>
+          <p className="font-medium text-gray-900 dark:text-white text-sm">Adicionar Bot</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">WhatsApp</p>
+        </Link>
+
+        <Link to="/automations" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-300 dark:hover:border-blue-700 transition">
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-3">
+            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <p className="font-medium text-gray-900 dark:text-white text-sm">Automações</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Regras</p>
+        </Link>
+
+        <Link to="/analytics" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-purple-300 dark:hover:border-purple-700 transition">
+          <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mb-3">
+            <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <p className="font-medium text-gray-900 dark:text-white text-sm">Analytics</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Relatórios</p>
+        </Link>
+
+        <Link to="/settings" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-orange-300 dark:hover:border-orange-700 transition">
+          <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center mb-3">
+            <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <p className="font-medium text-gray-900 dark:text-white text-sm">Configurações</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Ajustes</p>
+        </Link>
       </div>
 
-      {/* Getting Started Card */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-sm p-8 text-white">
+      {/* Plano atual */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold mb-2">Comece a configurar seu AutoChat Pro</h2>
-            <p className="text-purple-100 mb-4">Adicione seu primeiro bot e comece a automatizar seu atendimento.</p>
-            <button className="px-6 py-3 bg-white text-purple-600 rounded-lg font-medium hover:bg-purple-50 transition">
-              Adicionar Primeiro Bot
-            </button>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Plano Atual</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white capitalize">{user?.plano?.tipo || 'Free'}</p>
           </div>
-          <svg className="w-32 h-32 text-white opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
+          <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded-full">
+            Ativo
+          </span>
         </div>
       </div>
     </div>

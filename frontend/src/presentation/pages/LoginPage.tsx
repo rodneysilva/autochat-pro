@@ -175,12 +175,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Credenciais de teste */}
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">🔑 Credenciais de teste:</p>
-            <p className="text-xs text-blue-600 dark:text-blue-400">Email: admin@autochat.com</p>
-            <p className="text-xs text-blue-600 dark:text-blue-400">Senha: Admin@123</p>
-          </div>
+          {/* Credenciais - só em desenvolvimento */}
         </div>
       </div>
     </div>
