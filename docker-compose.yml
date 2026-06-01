@@ -101,6 +101,27 @@ services:
         condition: service_started
 
   # ==========================================
+  # PostgreSQL (Evolution API)
+  # ==========================================
+  evolution-db:
+    image: postgres:16-alpine
+    container_name: autochat-evolution-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evo
+      POSTGRES_PASSWORD: evo123
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    networks:
+      - autochat-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evo -d evolution"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
   # Frontend
   # ==========================================
   frontend:
@@ -128,19 +149,27 @@ services:
     container_name: autochat-evolution
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8090:8080"
     environment:
       - SERVER_PORT=8080
       - AUTHENTICATION_TYPE=apikey
       - API_KEY=evolution_api_key_secret_change_in_production
-      - STORE_DATABASE=MONGODB
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/?authSource=admin
-      - MONGODB_DATABASE=evolution_store
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_URL=postgresql://evo:evo123@evolution-db:5432/evolution?schema=public
+      - DATABASE_CONNECTION_URI=postgresql://evo:evo123@evolution-db:5432/evolution?schema=public
+      - DATABASE_CONNECTION_DB_NAME=evolution
+      - STORE_MESSAGES=true
+      - STORE_CONTACTS=true
+      - STORE_CHATS=true
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://redis:6379/0
     volumes:
       - evolution_data:/evolution/store
     networks:
       - autochat-network
     depends_on:
+      evolution-db:
+        condition: service_healthy
       mongodb:
         condition: service_healthy
 
@@ -156,6 +185,8 @@ volumes:
   postfix_certs:
     driver: local
   evolution_data:
+    driver: local
+  evolution_db_data:
     driver: local
 
 networks:
