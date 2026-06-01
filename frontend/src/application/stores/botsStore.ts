@@ -1,27 +1,42 @@
 import { create } from 'zustand'
+import { botsService, type BotResponse } from '../../infrastructure/api/bots.service'
 
+export type BotStatus = 'active' | 'paused' | 'disconnected' | 'error' | 'connecting'
 export type BotType = 'whatsapp' | 'telegram'
-export type BotStatus = 'active' | 'paused' | 'disconnected' | 'connecting'
 
 export interface Bot {
   id: string
-  userId: string
-  name: string
-  type: BotType
+  usuario_id: string
+  nome: string
+  tipo: 'whatsapp' | 'telegram'
   status: BotStatus
-  config: {
-    token?: string
-    welcomeMessage: string
-    autoReplyEnabled: boolean
-    llmEnabled: boolean
-    llmPrompt?: string
+  mensagem_boas_vindas: string
+  mensagem_despedida: string
+  mensagem_resposta_padrao: string
+  working_hours: {
+    ativado: boolean
+    inicio: string
+    fim: string
+    timezone: string
+    mensagem_fora_horario: string
   }
-  stats: {
-    totalMessages: number
-    totalConversations: number
+  llm_config: {
+    ativado: boolean
+    modelo: string
+    temperatura: number
+    max_tokens: number
+    system_prompt: string
+    fallback_para_llm: boolean
   }
-  createdAt: Date
-  updatedAt: Date
+  estatisticas: {
+    total_mensagens: number
+    total_conversas: number
+    tempo_resposta_medio: number
+  }
+  ultimo_erro: string | null
+  ultimo_conectado_em: string | null
+  criado_em: string
+  atualizado_em: string
 }
 
 interface BotsState {
@@ -36,6 +51,28 @@ interface BotsState {
   removeBot: (id: string) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  fetchBots: () => Promise<void>
+}
+
+// Mapeia resposta da API para o formato do store
+function mapBotResponse(bot: BotResponse): Bot {
+  return {
+    id: bot.id,
+    usuario_id: bot.usuario_id,
+    nome: bot.nome,
+    tipo: bot.tipo as BotType,
+    status: bot.status,
+    mensagem_boas_vindas: bot.mensagem_boas_vindas,
+    mensagem_despedida: bot.mensagem_despedida,
+    mensagem_resposta_padrao: bot.mensagem_resposta_padrao,
+    working_hours: bot.working_hours,
+    llm_config: bot.llm_config,
+    estatisticas: bot.estatisticas,
+    ultimo_erro: bot.ultimo_erro,
+    ultimo_conectado_em: bot.ultimo_conectado_em,
+    criado_em: bot.criado_em,
+    atualizado_em: bot.atualizado_em,
+  }
 }
 
 export const useBotsStore = create<BotsState>((set) => ({
@@ -45,7 +82,6 @@ export const useBotsStore = create<BotsState>((set) => ({
   error: null,
 
   setBots: (bots) => set({ bots }),
-
   setSelectedBot: (bot) => set({ selectedBot: bot }),
 
   addBot: (bot) =>
@@ -70,6 +106,16 @@ export const useBotsStore = create<BotsState>((set) => ({
     })),
 
   setLoading: (isLoading) => set({ isLoading }),
-
   setError: (error) => set({ error }),
+
+  fetchBots: async () => {
+    set({ isLoading: true, error: null })
+    try {
+      const result = await botsService.list()
+      set({ bots: result.data.map(mapBotResponse), isLoading: false })
+    } catch (err: any) {
+      const msg = err?.response?.data?.erro?.mensagem || 'Erro ao carregar bots'
+      set({ error: msg, isLoading: false })
+    }
+  },
 }))

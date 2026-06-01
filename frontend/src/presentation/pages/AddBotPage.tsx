@@ -114,6 +114,18 @@ export default function AddBotPage() {
           clearInterval(interval)
           setQrCode(null)
           setPairingCode(null)
+
+          // Salvar bot no banco de dados
+          try {
+            const { botsService } = await import('../../infrastructure/api/bots.service')
+            await botsService.create({
+              nome: instance,
+              tipo: 'whatsapp',
+            })
+          } catch (err) {
+            console.error('Erro ao salvar bot:', err)
+          }
+
           setTimeout(() => navigate('/dashboard'), 1500)
           return
         }
