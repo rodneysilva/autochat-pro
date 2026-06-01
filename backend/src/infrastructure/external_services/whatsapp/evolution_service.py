@@ -139,6 +139,8 @@ class EvolutionWhatsAppService:
         """
         Obtém informações de uma instância.
 
+        Evolution API v2: GET /instance/connectionState/{instanceName}
+
         Args:
             instance_name: Nome da instância.
 
@@ -196,27 +198,25 @@ class EvolutionWhatsAppService:
         """
         Obtém o QR Code para conexão.
 
+        Na Evolution API v2, o QR Code vem no endpoint /instance/restart/{name}
+        ou na criação da instância (/instance/create).
+
         Args:
             instance_name: Nome da instância.
 
         Returns:
-            Base64 do QR Code ou None.
+            Base64 do QR Code (sem prefixo) ou None.
         """
         try:
-            info = await self.get_instance_info(instance_name)
+            # Tentar restart para obter novo QR Code
+            result = await self._request("POST", f"/instance/restart/{instance_name}")
 
-            # Evolution retorna QR em diferentes formatos
-            if "qrcode" in info:
-                qr_data = info["qrcode"]
-                if isinstance(qr_data, dict) and "code" in qr_data:
-                    return qr_data["code"]
-                elif isinstance(qr_data, str):
-                    # Base64 sem prefixo
-                    if qr_data.startswith("data:image"):
-                        qr_data = qr_data.split(",")[1]
-                    return qr_data
-            elif "base64" in info:
-                return info["base64"]
+            # Evolution API v2 retorna base64 com prefixo data:image/png;base64,...
+            base64 = result.get("base64")
+            if base64:
+                if base64.startswith("data:image"):
+                    return base64.split(",")[1]
+                return base64
 
             return None
 
@@ -257,24 +257,29 @@ class EvolutionWhatsAppService:
         """
         Conecta usando número de telefone (code pairing).
 
+        Evolution API v2: POST /instance/connect/{instanceName}
+        com body {"number": "5511999999999"}
+
         Args:
             instance_name: Nome da instância.
             phone_number: Número com DDI (ex: 5511999999999).
 
         Returns:
-            Dados da instância.
+            Dados com pairingCode.
         """
         # Criar instância sem QR Code
-        await self.create_instance(instance_name, qrcode=False)
+        try:
+            await self.create_instance(instance_name, qrcode=False)
+        except Exception:
+            pass  # Instância já existe
 
-        # Iniciar pairing por telefone
+        # Iniciar pairing por telefone (Evolution API v2)
         data = {
-            "instanceName": instance_name,
             "number": phone_number,
         }
 
         logger.info(f"Iniciando pairing para {instance_name} com telefone {phone_number}")
-        result = await self._request("POST", "/baileys/auth/login/phone", data)
+        result = await self._request("POST", f"/instance/connect/{instance_name}", data)
 
         return result
 
