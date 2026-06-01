@@ -10,6 +10,7 @@ import AddBotPage from './presentation/pages/AddBotPage'
 import BotsPage from './presentation/pages/BotsPage'
 import BotConfigPage from './presentation/pages/BotConfigPage'
 import ConversationsPage from './presentation/pages/ConversationsPage'
+import ContactsPage from './presentation/pages/ContactsPage'
 import MainLayout from './presentation/layouts/MainLayout'
 import { ProtectedRoute } from './presentation/components/ProtectedRoute'
 
@@ -83,6 +84,17 @@ function App() {
           }
         >
           <Route index element={<ConversationsPage />} />
+        </Route>
+
+        <Route
+          path="/contacts"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<ContactsPage />} />
         </Route>
 
         <Route

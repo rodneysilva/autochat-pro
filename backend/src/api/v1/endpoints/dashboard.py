@@ -216,3 +216,111 @@ async def get_conversation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao buscar conversa"}},
         )
+
+
+# ========================================
+# Contatos
+# ========================================
+
+def _get_contact_repo():
+    from src.infrastructure.database.mongodb import MongoDB
+    from src.infrastructure.repositories.contact_repository_impl import MongoContactRepository
+    return MongoContactRepository(MongoDB.get_database())
+
+
+@router.get(
+    "/contacts",
+    summary="Listar contatos",
+    description="Lista contatos/leads dos bots do usuário.",
+)
+async def list_contacts(
+    bot_id: Optional[str] = Query(None),
+    tag: Optional[str] = Query(None),
+    search: Optional[str] = Query(None, description="Buscar por nome"),
+    pagina: int = Query(1, ge=1),
+    tamanho_pagina: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user),
+):
+    """Lista contatos do usuário."""
+    try:
+        contact_repo = _get_contact_repo()
+        usuario_id = str(current_user.id)
+
+        if search:
+            contacts = await contact_repo.buscar_por_nome(usuario_id, search, limit=100)
+        elif tag:
+            contacts = await contact_repo.listar_por_tag(usuario_id, tag)
+        elif bot_id:
+            contacts = await contact_repo.listar_por_bot(bot_id)
+        else:
+            contacts = await contact_repo.listar_por_usuario(usuario_id)
+
+        total = len(contacts)
+        start = (pagina - 1) * tamanho_pagina
+        page_contacts = contacts[start:start + tamanho_pagina]
+
+        return {
+            "data": [
+                {
+                    "id": c.id,
+                    "bot_id": c.bot_id,
+                    "nome": c.nome,
+                    "telefone": c.telefone,
+                    "email": c.email,
+                    "origem": c.origem if isinstance(c.origem, str) else c.origem.value,
+                    "tags": c.tags,
+                    "status": c.status if isinstance(c.status, str) else c.status.value,
+                    "ultima_mensagem_em": c.ultima_mensagem_em,
+                    "total_mensagens": c.total_mensagens,
+                    "total_conversas": c.total_conversas,
+                    "criado_em": c.criado_em,
+                }
+                for c in page_contacts
+            ],
+            "total": total,
+            "pagina": pagina,
+            "tamanho_pagina": tamanho_pagina,
+        }
+    except Exception as e:
+        logger.error(f"Erro ao listar contatos: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao listar contatos"}},
+        )
+
+
+@router.delete(
+    "/contacts/{contact_id}",
+    summary="Deletar contato",
+    description="Remove um contato.",
+)
+async def delete_contact(
+    contact_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Deleta um contato."""
+    try:
+        contact_repo = _get_contact_repo()
+        contact = await contact_repo.buscar_por_id(contact_id)
+        if not contact:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Contato não encontrado"}},
+            )
+
+        if str(contact.usuario_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"erro": {"codigo": "FORBIDDEN", "mensagem": "Contato não pertence a este usuário"}},
+            )
+
+        await contact_repo.deletar(contact_id)
+        return {"message": "Contato removido com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao deletar contato: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao deletar contato"}},
+        )

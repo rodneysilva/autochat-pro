@@ -82,6 +82,18 @@ async def create_automation_rule_indexes(database: AsyncIOMotorDatabase) -> None
     logger.info("Índices de automation_rules criados")
 
 
+async def create_contact_indexes(database: AsyncIOMotorDatabase) -> None:
+    """Cria índices da coleção contacts."""
+    await database.contacts.create_index("bot_id")
+    await database.contacts.create_index("usuario_id")
+    await database.contacts.create_index("telefone")
+    await database.contacts.create_index([("bot_id", 1), ("telefone", 1)])
+    await database.contacts.create_index([("usuario_id", 1), ("telefone", 1)])
+    await database.contacts.create_index([("usuario_id", 1), ("nome", 1)])
+    await database.contacts.create_index([("bot_id", 1), ("last_message_at", -1)])
+    logger.info("Índices de contacts criados")
+
+
 async def create_all_indexes(database: AsyncIOMotorDatabase) -> None:
     """
     Cria todos os índices do banco de dados.
@@ -98,6 +110,7 @@ async def create_all_indexes(database: AsyncIOMotorDatabase) -> None:
     await create_analytics_indexes(database)
     await create_daily_stats_indexes(database)
     await create_automation_rule_indexes(database)
+    await create_contact_indexes(database)
 
     logger.info("=== Índices criados com sucesso ===")
 
