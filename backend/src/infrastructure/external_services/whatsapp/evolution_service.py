@@ -260,12 +260,10 @@ class EvolutionWhatsAppService:
         phone_number: str,
     ) -> Dict[str, Any]:
         """
-        Conecta usando número de telefone (code pairing).
+        Conecta usando número de telefone (pairing code).
 
-        Evolution API v2: GET /instance/connect/{instanceName}?number={phone_number}
-
-        Se a instância já existir e estiver em estado close/connecting/error,
-        ela é deletada e recriada para gerar um novo pairing code.
+        Evolution API v2: POST /instance/create com number no body.
+        O pairingCode vem na resposta qrcode.pairingCode do CREATE.
 
         Args:
             instance_name: Nome da instância.
@@ -274,35 +272,70 @@ class EvolutionWhatsAppService:
         Returns:
             Dados com pairingCode.
         """
-        # Verificar se instância já existe e precisa ser recriada
+        # Deletar instância existente se houver
         try:
             existing = await self.list_instances()
             for inst in existing:
                 if inst.get("name") == instance_name:
-                    state = inst.get("connectionStatus", "")
-                    if state in ("close", "connecting", "refused"):
-                        logger.info(f"Instância {instance_name} em estado {state}, deletando para recriar")
-                        try:
-                            await self.delete_instance(instance_name)
-                        except Exception:
-                            pass
+                    logger.info(f"Deletando instância existente {instance_name}")
+                    try:
+                        await self.delete_instance(instance_name)
+                    except Exception:
+                        pass
+                    # Esperar a Evolution processar o delete
+                    import asyncio
+                    await asyncio.sleep(3)
                     break
         except Exception:
-            pass  # Seguir sem verificar
+            pass
 
-        # Criar instância sem QR Code
+        # Criar instância com number — pairing code vem na resposta do CREATE
+        # Retry em caso de race condition com delete
+        import asyncio
+        for attempt in range(3):
+            try:
+                logger.info(f"Criando instância {instance_name} com telefone {phone_number} (tentativa {attempt+1})")
+                result = await self._request(
+                    "POST",
+                    "/instance/create",
+                    {
+                        "instanceName": instance_name,
+                        "qrcode": True,
+                        "integration": "WHATSAPP-BAILEYS",
+                        "number": phone_number,
+                    },
+                )
+                break
+            except Exception as e:
+                if "already in use" in str(e).lower() and attempt < 2:
+                    logger.warning(f"Instância ainda existe, aguardando... ({attempt+1}/3)")
+                    await asyncio.sleep(3)
+                    continue
+                raise
+
+        # Extrair pairing code da resposta
+        qr_data = result.get("qrcode", {})
+        pairing_code = qr_data.get("pairingCode")
+
+        if pairing_code:
+            logger.info(f"Pairing code gerado: {pairing_code}")
+            return {"pairingCode": pairing_code}
+
+        # Fallback: se não veio pairing code, tentar GET /instance/connect
+        logger.warning("Pairing code não veio no create, tentando connect...")
         try:
-            await self.create_instance(instance_name, qrcode=False)
+            connect_result = await self._request(
+                "GET",
+                f"/instance/connect/{instance_name}",
+            )
+            fallback_code = connect_result.get("pairingCode")
+            if fallback_code:
+                return {"pairingCode": fallback_code}
         except Exception:
-            pass  # Instância já existe
+            pass
 
-        # Iniciar pairing por telefone (Evolution API v2 — GET com query param)
-        logger.info(f"Iniciando pairing para {instance_name} com telefone {phone_number}")
-        result = await self._request(
-            "GET",
-            f"/instance/connect/{instance_name}",
-            params={"number": phone_number},
-        )
+        # Retornar o que tiver
+        return result
 
         return result
 
