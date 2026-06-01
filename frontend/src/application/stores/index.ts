@@ -7,9 +7,4 @@ export { useBotsStore } from './botsStore'
 export type { Bot, BotType, BotStatus } from './botsStore'
 
 export { useConversationsStore } from './conversationsStore'
-export type {
-  Conversation,
-  Customer,
-  Message,
-  ConversationStatus,
-} from './conversationsStore'
+export type { ConversationStatus } from './conversationsStore'

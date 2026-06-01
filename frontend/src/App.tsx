@@ -9,6 +9,7 @@ import ResetPasswordPage from './presentation/pages/ResetPasswordPage'
 import AddBotPage from './presentation/pages/AddBotPage'
 import BotsPage from './presentation/pages/BotsPage'
 import BotConfigPage from './presentation/pages/BotConfigPage'
+import ConversationsPage from './presentation/pages/ConversationsPage'
 import MainLayout from './presentation/layouts/MainLayout'
 import { ProtectedRoute } from './presentation/components/ProtectedRoute'
 
@@ -81,7 +82,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<PlaceholderPage title="Conversas" description="Veja todas as conversas dos seus bots em tempo real. Esta funcionalidade estará disponível em breve." />} />
+          <Route index element={<ConversationsPage />} />
         </Route>
 
         <Route
