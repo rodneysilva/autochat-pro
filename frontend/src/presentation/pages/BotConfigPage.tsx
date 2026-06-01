@@ -742,36 +742,20 @@ export default function BotConfigPage() {
                         setWaError('')
                         setWaLoading(true)
                         try {
-                          if (waMethod === 'qrcode') {
-                            const result = await whatsappService.connectWithQRCode({
-                              name: bot.nome,
-                              qrcode: true,
-                            })
-                            if (result.qrcode) {
-                              setWaQrCode(result.qrcode)
-                              setWaStatus('qrcode')
-                              startWaStatusPoll(bot.nome, bot.id)
-                            } else if (result.status === ConnectionStatus.CONNECTED) {
-                              await botsService.resume(bot.id)
-                              await fetchBots()
-                              setWaStatus('connected')
-                              setWaSuccess(true)
-                              setTimeout(() => navigate('/dashboard'), 2000)
-                            }
-                          } else {
-                            const cleanPhone = waPhone.replace(/\D/g, '')
-                            if (cleanPhone.length < 10) {
-                              setWaError('Número de telefone inválido')
-                              return
-                            }
-                            const fullPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone
-                            const result = await whatsappService.connectWithPhone({
-                              instance_name: bot.nome,
-                              phone_number: fullPhone,
-                            })
-                            setWaPairingCode(result.pairing_code || JSON.stringify(result))
-                            setWaStatus('pairing')
+                          const result = await whatsappService.connectWithQRCode({
+                            name: bot.nome,
+                            qrcode: true,
+                          })
+                          if (result.qrcode) {
+                            setWaQrCode(result.qrcode)
+                            setWaStatus('qrcode')
                             startWaStatusPoll(bot.nome, bot.id)
+                          } else if (result.status === ConnectionStatus.CONNECTED) {
+                            await botsService.resume(bot.id)
+                            await fetchBots()
+                            setWaStatus('connected')
+                            setWaSuccess(true)
+                            setTimeout(() => navigate('/dashboard'), 2000)
                           }
                         } catch (err: any) {
                           setWaError(err?.response?.data?.error?.message || 'Erro ao conectar. Tente novamente.')
@@ -779,13 +763,13 @@ export default function BotConfigPage() {
                           setWaLoading(false)
                         }
                       }}
-                      disabled={waLoading || (waMethod === 'phone' && waPhone.length < 10)}
+                      disabled={waLoading}
                       className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {waLoading ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       ) : null}
-                      {waMethod === 'qrcode' ? 'Conectar via QR Code' : 'Conectar via Telefone'}
+                      Conectar via QR Code
                     </button>
                   </>
                 )}
