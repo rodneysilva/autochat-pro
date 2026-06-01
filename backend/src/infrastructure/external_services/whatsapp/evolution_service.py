@@ -69,8 +69,11 @@ class EvolutionWhatsAppService:
         """
         url = f"{self.api_url}{endpoint}"
 
+        # Timeout maior para operações de mensagem (envio pode demorar)
+        timeout = 60.0 if "/message/" in endpoint else 30.0
+
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 if method == "GET":
                     response = await client.get(url, headers=self._get_headers(), params=params)
                 elif method == "POST":
@@ -431,9 +434,12 @@ class EvolutionWhatsAppService:
             Confirmação da configuração.
         """
         data = {
-            "url": webhook_url,
-            "webhook_by_events": webhook_by_events,
-            "events": events,
+            "webhook": {
+                "enabled": True,
+                "url": webhook_url,
+                "webhook_by_events": webhook_by_events,
+                "events": events,
+            }
         }
 
         logger.info(f"Configurando webhook para {instance_name}: {webhook_url}")

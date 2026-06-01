@@ -577,8 +577,8 @@ async def receive_webhook(
     event_type = event.get("event", "unknown")
     logger.info(f"Webhook recebido para {instance_name}: {event_type}")
 
-    # Processar apenas mensagens novas
-    if event_type == "messages.upsert":
+    # Processar mensagens novas (Evolution API v2 usa MESSAGES_UPSERT)
+    if event_type in ("messages.upsert", "MESSAGES_UPSERT"):
         try:
             from src.application.services.message_processor import get_message_processor
 
@@ -595,5 +595,23 @@ async def receive_webhook(
                 logger.warning("MessageProcessor não inicializado")
         except Exception as e:
             logger.error(f"Erro ao processar webhook: {e}", exc_info=True)
+
+        # Garantir webhook configurado (idempotente)
+        try:
+            from src.infrastructure.external_services.whatsapp import get_whatsapp_service
+            ws = get_whatsapp_service()
+            webhook_url = f"http://autochat-backend:8000/api/v1/whatsapp/webhook/{instance_name}"
+            # Verificar se webhook já está configurado
+            existing = await ws.get_webhook(instance_name)
+            if not existing or not existing.get("url"):
+                await ws.set_webhook(
+                    instance_name,
+                    webhook_url,
+                    ["MESSAGES_UPSERT"],
+                    False,
+                )
+                logger.info(f"Webhook auto-configurado para {instance_name}: {webhook_url}")
+        except Exception as e:
+            logger.warning(f"Não foi possível auto-configurar webhook: {e}")
 
     return {"status": "received", "event": event_type}

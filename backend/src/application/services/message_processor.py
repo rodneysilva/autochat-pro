@@ -97,10 +97,14 @@ class MessageProcessor:
             if not response_text:
                 return None
 
-            # Enviar resposta
-            response_id = await self._whatsapp.send_text(
-                instance_name, phone_number, response_text
-            )
+            # Enviar resposta (com retry e error handling)
+            try:
+                response_id = await self._whatsapp.send_text(
+                    instance_name, phone_number, response_text
+                )
+            except Exception as e:
+                logger.error(f"Erro ao enviar resposta para {phone_number}: {e}")
+                return None
 
             # Atualizar estatísticas do bot
             await self._update_bot_stats(bot)
@@ -132,8 +136,8 @@ class MessageProcessor:
         try:
             event_type = event.get("event", "")
 
-            # Só processar mensagens novas
-            if event_type != "messages.upsert":
+            # Só processar mensagens novas (Evolution API v2 usa MESSAGES_UPSERT)
+            if event_type not in ("messages.upsert", "MESSAGES_UPSERT"):
                 return None
 
             data = event.get("data", {})
