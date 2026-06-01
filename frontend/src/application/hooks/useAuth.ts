@@ -33,7 +33,7 @@ export function useAuth() {
     async (data: RegisterData): Promise<AuthResult> => {
       try {
         setLoading(true)
-        const registerResponse = await authService.register(data)
+        await authService.register(data)
 
         // Após registro, fazer login automático
         const loginResponse = await authService.login({
@@ -45,7 +45,7 @@ export function useAuth() {
           {
             id: loginResponse.user.id,
             email: loginResponse.user.email,
-            nome: loginResponse.user.nome || loginResponse.user.name,
+            nome: loginResponse.user.nome || loginResponse.user.name || '',
             avatar: loginResponse.user.avatar,
             plano: {
               tipo: loginResponse.user.plano_tipo as 'free' | 'basic' | 'pro',
@@ -88,7 +88,7 @@ export function useAuth() {
           {
             id: response.user.id,
             email: response.user.email,
-            nome: response.user.nome || response.user.name,
+            nome: response.user.nome || response.user.name || '',
             avatar: response.user.avatar,
             plano: {
               tipo: response.user.plano_tipo as 'free' | 'basic' | 'pro',

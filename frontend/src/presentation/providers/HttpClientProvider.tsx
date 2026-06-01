@@ -6,7 +6,7 @@
 
 import { useEffect } from 'react'
 import { useAuthStore } from '../../application/stores'
-import { setupHttpClient, getHttpClient } from '../../infrastructure/api/http-client'
+import { setupHttpClient } from '../../infrastructure/api/http-client'
 import { authService } from '../../infrastructure/api/auth.service'
 
 export function HttpClientProvider({ children }: { children: React.ReactNode }) {

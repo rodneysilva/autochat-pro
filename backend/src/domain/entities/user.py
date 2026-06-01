@@ -6,7 +6,7 @@ Seguindo DDD, esta entidade contém apenas lógica de negócio e regras do domí
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID, uuid4
@@ -198,7 +198,7 @@ class Usuario:
             return
 
         self.plano.trial_utilizado = True
-        self.plano.trial_termina_em = datetime.utcnow() + datetime.timedelta(days=dias_trial)
+        self.plano.trial_termina_em = datetime.utcnow() + timedelta(days=dias_trial)
         self.atualizado_em = datetime.utcnow()
 
     def __post_init__(self) -> None:

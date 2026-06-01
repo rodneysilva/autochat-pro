@@ -8,11 +8,12 @@ utilizando MongoDB como banco de dados.
 from typing import Optional, List
 from datetime import datetime, timezone
 from bson import ObjectId
+from uuid import UUID
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from src.domain.repositories.user_repository import UserRepository
-from src.domain.entities.user import Usuario, ConfiguracaoPlano, StatusUsuario
+from src.domain.entities.user import Usuario, ConfiguracaoPlano, StatusUsuario, TipoPlano
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +39,7 @@ class MongoUserRepository(UserRepository):
 
         plan_data = doc.get("plan", {})
         plan = ConfiguracaoPlano(
-            tipo=plan_data.get("type", "free"),
+            tipo=TipoPlano(plan_data.get("type", "free")),
             max_bots=plan_data.get("max_bots", 1),
             max_mensagens_por_mes=plan_data.get("max_messages_per_month", 100),
             max_contatos=plan_data.get("max_contacts", 50),
@@ -60,7 +61,7 @@ class MongoUserRepository(UserRepository):
             nome=doc.get("name", ""),
             avatar=doc.get("avatar"),
             plano=plan,
-            status=doc.get("status", StatusUsuario.ATIVO),
+            status=StatusUsuario(doc.get("status", "active")),
             criado_em=doc.get("created_at"),
             atualizado_em=doc.get("updated_at"),
             ultimo_login=doc.get("last_login"),
@@ -98,16 +99,12 @@ class MongoUserRepository(UserRepository):
 
         return doc
 
+    # ========================================
+    # Métodos CRUD em inglês (existentes)
+    # ========================================
+
     async def create(self, user: Usuario) -> Usuario:
-        """
-        Cria um novo usuário.
-
-        Args:
-            user: Entidade do usuário a ser criada.
-
-        Returns:
-            Usuário criado com ID preenchido.
-        """
+        """Cria um novo usuário."""
         doc = self._user_to_document(user)
         doc["created_at"] = datetime.now(timezone.utc)
         doc["status"] = StatusUsuario.ATIVO.value if hasattr(StatusUsuario.ATIVO, 'value') else StatusUsuario.ATIVO
@@ -119,15 +116,7 @@ class MongoUserRepository(UserRepository):
         return created_user
 
     async def find_by_id(self, user_id: str) -> Optional[Usuario]:
-        """
-        Busca um usuário por ID.
-
-        Args:
-            user_id: ID do usuário.
-
-        Returns:
-            Usuário encontrado ou None.
-        """
+        """Busca um usuário por ID."""
         try:
             doc = await self._collection.find_one({"_id": ObjectId(user_id)})
             return self._document_to_user(doc)
@@ -135,41 +124,17 @@ class MongoUserRepository(UserRepository):
             return None
 
     async def find_by_email(self, email: str) -> Optional[Usuario]:
-        """
-        Busca um usuário por email.
-
-        Args:
-            email: Email do usuário.
-
-        Returns:
-            Usuário encontrado ou None.
-        """
+        """Busca um usuário por email."""
         doc = await self._collection.find_one({"email": email})
         return self._document_to_user(doc)
 
     async def find_by_phone(self, phone: str) -> Optional[Usuario]:
-        """
-        Busca um usuário por telefone.
-
-        Args:
-            phone: Telefone do usuário.
-
-        Returns:
-            Usuário encontrado ou None.
-        """
+        """Busca um usuário por telefone."""
         doc = await self._collection.find_one({"phone": phone})
         return self._document_to_user(doc)
 
     async def update(self, user: Usuario) -> Usuario:
-        """
-        Atualiza um usuário.
-
-        Args:
-            user: Usuário com dados atualizados.
-
-        Returns:
-            Usuário atualizado.
-        """
+        """Atualiza um usuário."""
         if not user.id:
             raise ValueError("User ID is required for update")
 
@@ -185,15 +150,7 @@ class MongoUserRepository(UserRepository):
         return updated_user
 
     async def delete(self, user_id: str) -> bool:
-        """
-        Deleta (soft delete) um usuário.
-
-        Args:
-            user_id: ID do usuário.
-
-        Returns:
-            True se deletado com sucesso.
-        """
+        """Deleta (soft delete) um usuário."""
         # Soft delete - apenas marca como deletado
         result = await self._collection.update_one(
             {"_id": ObjectId(user_id)},
@@ -211,17 +168,7 @@ class MongoUserRepository(UserRepository):
         limit: int = 100,
         status: Optional[StatusUsuario] = None
     ) -> List[Usuario]:
-        """
-        Lista todos os usuários com paginação.
-
-        Args:
-            skip: Quantidade de registros para pular.
-            limit: Quantidade máxima de registros.
-            status: Filtrar por status (opcional).
-
-        Returns:
-            Lista de usuários.
-        """
+        """Lista todos os usuários com paginação."""
         query = {}
         if status:
             query["status"] = status.value if hasattr(status, 'value') else status
@@ -232,41 +179,17 @@ class MongoUserRepository(UserRepository):
         return [self._document_to_user(doc) for doc in docs if self._document_to_user(doc)]
 
     async def email_exists(self, email: str) -> bool:
-        """
-        Verifica se um email já está cadastrado.
-
-        Args:
-            email: Email a verificar.
-
-        Returns:
-            True se o email existe.
-        """
+        """Verifica se um email já está cadastrado."""
         count = await self._collection.count_documents({"email": email})
         return count > 0
 
     async def phone_exists(self, phone: str) -> bool:
-        """
-        Verifica se um telefone já está cadastrado.
-
-        Args:
-            phone: Telefone a verificar.
-
-        Returns:
-            True se o telefone existe.
-        """
+        """Verifica se um telefone já está cadastrado."""
         count = await self._collection.count_documents({"phone": phone})
         return count > 0
 
     async def set_email_confirmed(self, user_id: str) -> bool:
-        """
-        Marca o email do usuário como confirmado.
-
-        Args:
-            user_id: ID do usuário.
-
-        Returns:
-            True se atualizado com sucesso.
-        """
+        """Marca o email do usuário como confirmado."""
         result = await self._collection.update_one(
             {"_id": ObjectId(user_id)},
             {
@@ -282,15 +205,7 @@ class MongoUserRepository(UserRepository):
         return result.modified_count > 0
 
     async def set_phone_confirmed(self, user_id: str) -> bool:
-        """
-        Marca o telefone do usuário como confirmado.
-
-        Args:
-            user_id: ID do usuário.
-
-        Returns:
-            True se atualizado com sucesso.
-        """
+        """Marca o telefone do usuário como confirmado."""
         result = await self._collection.update_one(
             {"_id": ObjectId(user_id)},
             {
@@ -306,16 +221,7 @@ class MongoUserRepository(UserRepository):
         return result.modified_count > 0
 
     async def update_password(self, user_id: str, password_hash: str) -> bool:
-        """
-        Atualiza a senha do usuário.
-
-        Args:
-            user_id: ID do usuário.
-            password_hash: Hash da nova senha.
-
-        Returns:
-            True se atualizado com sucesso.
-        """
+        """Atualiza a senha do usuário."""
         result = await self._collection.update_one(
             {"_id": ObjectId(user_id)},
             {
@@ -329,3 +235,94 @@ class MongoUserRepository(UserRepository):
         if result.modified_count > 0:
             logger.info(f"Senha atualizada para usuário: {user_id}")
         return result.modified_count > 0
+
+    # ========================================
+    # Métodos abstratos da interface base (PT-BR)
+    # ========================================
+
+    async def salvar(self, entidade: Usuario) -> Usuario:
+        """Salva uma entidade (cria ou atualiza)."""
+        if entidade.id:
+            return await self.update(entidade)
+        return await self.create(entidade)
+
+    async def buscar_por_id(self, id: UUID) -> Optional[Usuario]:
+        """Busca uma entidade por ID."""
+        return await self.find_by_id(str(id))
+
+    async def buscar_por_email(self, email: str) -> Optional[Usuario]:
+        """Busca um usuário por email."""
+        return await self.find_by_email(email)
+
+    async def buscar_por_telefone(self, telefone: str) -> Optional[Usuario]:
+        """Busca um usuário por telefone."""
+        return await self.find_by_phone(telefone)
+
+    async def listar(self, limite: int = 100, pulo: int = 0, filtros: Optional[dict] = None) -> List[Usuario]:
+        """Lista entidades com paginação e filtros."""
+        query = filtros or {}
+        cursor = self._collection.find(query).skip(pulo).limit(limite)
+        docs = await cursor.to_list(length=limite)
+        return [self._document_to_user(doc) for doc in docs if self._document_to_user(doc)]
+
+    async def deletar(self, id: UUID) -> bool:
+        """Deleta uma entidade por ID."""
+        return await self.delete(str(id))
+
+    async def contar(self, filtros: Optional[dict] = None) -> int:
+        """Conta o total de entidades."""
+        return await self._collection.count_documents(filtros or {})
+
+    async def listar_por_plano(
+        self,
+        tipo_plano: TipoPlano,
+        limite: int = 100,
+        pulo: int = 0,
+    ) -> List[Usuario]:
+        """Lista usuários por tipo de plano."""
+        query = {"plan.type": tipo_plano.value if hasattr(tipo_plano, 'value') else tipo_plano}
+        cursor = self._collection.find(query).skip(pulo).limit(limite)
+        docs = await cursor.to_list(length=limite)
+        return [self._document_to_user(doc) for doc in docs if self._document_to_user(doc)]
+
+    async def contar_ativos(self) -> int:
+        """Conta usuários ativos."""
+        return await self._collection.count_documents({
+            "status": StatusUsuario.ATIVO.value if hasattr(StatusUsuario.ATIVO, 'value') else StatusUsuario.ATIVO
+        })
+
+    async def atualizar_plano(
+        self,
+        usuario_id: UUID,
+        tipo_plano: TipoPlano,
+        expira_em: Optional[any] = None,
+    ) -> Optional[Usuario]:
+        """Atualiza o plano de um usuário."""
+        user = await self.find_by_id(str(usuario_id))
+        if not user:
+            return None
+
+        user.plano.upgrade_para(tipo_plano, expira_em)
+        return await self.update(user)
+
+    async def verificar_email_existente(
+        self,
+        email: str,
+        excluir_id: Optional[UUID] = None,
+    ) -> bool:
+        """Verifica se um email já existe."""
+        query = {"email": email}
+        if excluir_id:
+            query["_id"] = {"$ne": ObjectId(str(excluir_id))}
+        return await self._collection.count_documents(query) > 0
+
+    async def verificar_telefone_existente(
+        self,
+        telefone: str,
+        excluir_id: Optional[UUID] = None,
+    ) -> bool:
+        """Verifica se um telefone já existe."""
+        query = {"phone": telefone}
+        if excluir_id:
+            query["_id"] = {"$ne": ObjectId(str(excluir_id))}
+        return await self._collection.count_documents(query) > 0

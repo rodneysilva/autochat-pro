@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { whatsappService, ConnectionStatus } from '../../infrastructure/api/whatsapp.service'
@@ -12,7 +12,6 @@ export default function AddBotPage() {
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [checkingStatus, setCheckingStatus] = useState(false)
 
   const formatPhoneNumber = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
@@ -61,7 +60,7 @@ export default function AddBotPage() {
           phone_number: cleanPhone,
         })
 
-        setPairingCode(result.pairing_code || result.code || JSON.stringify(result))
+        setPairingCode(result.pairing_code || JSON.stringify(result))
         setStatus('pairing')
 
         // Poll para verificar status
@@ -229,10 +228,10 @@ export default function AddBotPage() {
                 {/* Submit */}
                 <button
                   onClick={handleConnect}
-                  disabled={status === 'connecting' || !instanceName || (connectionMethod === 'phone' && phoneNumber.length < 10)}
+                  disabled={!instanceName || (connectionMethod === 'phone' && phoneNumber.length < 10)}
                   className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {status === 'connecting' ? 'Conectando...' : 'Conectar WhatsApp'}
+                  Conectar WhatsApp
                 </button>
               </div>
             </>

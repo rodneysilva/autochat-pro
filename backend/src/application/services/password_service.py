@@ -4,14 +4,11 @@ Serviço de gerenciamento de senhas.
 Fornece funções para hash e verificação de senhas usando bcrypt.
 """
 
-from passlib.context import CryptContext
+import bcrypt
 
 from src.shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
-
-# Contexto de criptografia com bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class PasswordService:
@@ -28,9 +25,9 @@ class PasswordService:
         Returns:
             Hash da senha.
         """
-        hashed = pwd_context.hash(password)
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         logger.debug("Senha hash gerada")
-        return hashed
+        return hashed.decode('utf-8')
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -44,7 +41,10 @@ class PasswordService:
         Returns:
             True se a senha estiver correta.
         """
-        is_correct = pwd_context.verify(plain_password, hashed_password)
+        is_correct = bcrypt.checkpw(
+            plain_password.encode('utf-8'),
+            hashed_password.encode('utf-8')
+        )
         if is_correct:
             logger.debug("Senha verificada com sucesso")
         else:

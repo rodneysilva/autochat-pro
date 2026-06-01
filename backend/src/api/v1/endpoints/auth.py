@@ -158,13 +158,13 @@ async def register(
             # Não falhar o registro se o email falhar
 
         return result
-    except BaseAppException as e:
-        raise e.to_http_exception()
+    except BaseAppException:
+        raise
     except Exception as e:
         logger.error(f"Erro não tratado em register: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro interno do servidor"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro interno do servidor"}}
         )
 
 
@@ -186,13 +186,13 @@ async def login(
     """
     try:
         return await use_case.execute(request)
-    except BaseAppException as e:
-        raise e.to_http_exception()
+    except BaseAppException:
+        raise
     except Exception as e:
         logger.error(f"Erro não tratado em login: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro interno do servidor"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro interno do servidor"}}
         )
 
 
@@ -213,13 +213,13 @@ async def refresh_token(
     """
     try:
         return await use_case.execute(request.refresh_token)
-    except BaseAppException as e:
-        raise e.to_http_exception()
+    except BaseAppException:
+        raise
     except Exception as e:
         logger.error(f"Erro não tratado em refresh: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro interno do servidor"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro interno do servidor"}}
         )
 
 
@@ -316,13 +316,13 @@ async def confirm_email(
                 logger.error(f"Erro ao enviar email de boas-vindas: {e}")
 
         return {"message": "Email confirmado com sucesso"}
-    except BaseAppException as e:
-        raise e.to_http_exception()
+    except BaseAppException:
+        raise
     except Exception as e:
         logger.error(f"Erro não tratado em confirm_email: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro interno do servidor"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro interno do servidor"}}
         )
 
 
@@ -435,13 +435,13 @@ async def reset_password(
     try:
         await use_case.reset_password(request.token, request.new_password)
         return {"message": "Senha redefinida com sucesso"}
-    except BaseAppException as e:
-        raise e.to_http_exception()
+    except BaseAppException:
+        raise
     except Exception as e:
         logger.error(f"Erro não tratado em reset_password: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro interno do servidor"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro interno do servidor"}}
         )
 
 
@@ -507,11 +507,11 @@ async def verify_phone(
     try:
         await use_case.verify_code(request.phone, request.code)
         return {"message": "Telefone confirmado com sucesso"}
-    except BaseAppException as e:
-        raise e.to_http_exception()
+    except BaseAppException:
+        raise
     except Exception as e:
         logger.error(f"Erro não tratado em verify_phone: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro interno do servidor"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro interno do servidor"}}
         )

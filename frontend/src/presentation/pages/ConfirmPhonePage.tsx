@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { authService } from '../../infrastructure/api/auth.service'
 
 export default function ConfirmPhonePage() {
-  const navigate = useNavigate()
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [status, setStatus] = useState<'input' | 'sent' | 'verifying' | 'success' | 'error'>('input')
@@ -12,7 +10,7 @@ export default function ConfirmPhonePage() {
   const [countdown, setCountdown] = useState(0)
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
+    let interval: ReturnType<typeof setInterval> | null = null
     if (countdown > 0) {
       interval = setInterval(() => {
         setCountdown((prev) => prev - 1)
@@ -180,10 +178,10 @@ export default function ConfirmPhonePage() {
                     {/* Submit */}
                     <button
                       type="submit"
-                      disabled={status === 'verifying' || phone.length < 10}
+                      disabled={phone.length < 10}
                       className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {status === 'verifying' ? 'Enviando...' : 'Enviar código por WhatsApp'}
+                      Enviar código por WhatsApp
                     </button>
                   </form>
                 </>
@@ -196,13 +194,7 @@ export default function ConfirmPhonePage() {
                     </p>
                   </div>
 
-                  {/* Error message */}
-                  {status === 'error' && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600">{message}</p>
-                    </div>
-                  )}
-
+                  {/* Error message - não aplica nesta branch pois status é 'sent' | 'verifying' */}
                   <form onSubmit={handleVerifyCode} className="space-y-6">
                     {/* Code */}
                     <div>
@@ -240,10 +232,10 @@ export default function ConfirmPhonePage() {
                     {/* Submit */}
                     <button
                       type="submit"
-                      disabled={status === 'verifying' || code.length !== 6}
+                      disabled={code.length !== 6}
                       className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {status === 'verifying' ? 'Verificando...' : 'Verificar código'}
+                      Verificar código
                     </button>
                   </form>
                 </>

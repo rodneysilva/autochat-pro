@@ -139,6 +139,55 @@ async def seed_system_settings(database: AsyncIOMotorDatabase) -> None:
     logger.info("Configurações do sistema criadas com sucesso")
 
 
+async def seed_test_user(database: AsyncIOMotorDatabase) -> None:
+    """
+    Cria um usuário de teste para desenvolvimento.
+
+    Args:
+        database: Instância do banco de dados MongoDB.
+    """
+    users_collection = database.users
+
+    test_email = "admin@autochat.com"
+
+    # Verificar se já existe
+    existing = await users_collection.find_one({"email": test_email})
+    if existing:
+        logger.info("Usuário de teste já existe, pulando...")
+        return
+
+    from src.application.services.password_service import PasswordService
+
+    password_hash = PasswordService.hash_password("Admin@123")
+
+    test_user = {
+        "email": test_email,
+        "password_hash": password_hash,
+        "name": "Admin Teste",
+        "phone": None,
+        "avatar": None,
+        "email_confirmed": True,
+        "phone_confirmed": False,
+        "plan": {
+            "type": "pro",
+            "max_bots": 10,
+            "max_messages_per_month": 50000,
+            "max_contacts": 5000,
+            "max_automation_rules": 50,
+            "max_conversations": 1000,
+            "features": ["basic_automation", "llm", "analytics", "api_access", "priority_support"],
+            "trial_used": False,
+        },
+        "status": "active",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "last_login": None,
+    }
+
+    await users_collection.insert_one(test_user)
+    logger.info("Usuário de teste criado: admin@autochat.com / Admin@123")
+
+
 async def seed_all(database: AsyncIOMotorDatabase) -> None:
     """
     Executa todos os seeds.
@@ -150,6 +199,7 @@ async def seed_all(database: AsyncIOMotorDatabase) -> None:
 
     await seed_plans(database)
     await seed_system_settings(database)
+    await seed_test_user(database)
 
     logger.info("=== Seeds concluídos ===")
 
