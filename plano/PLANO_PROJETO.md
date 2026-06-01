@@ -13,7 +13,7 @@
 | **LLM** | GLM (on-premise) |
 | **Público** | Pequenos negócios |
 | **Prazo Estimado** | 10-12 semanas (1 dev) / 6-8 semanas (2 devs) |
-| **Progresso Atual** | 50% |
+| **Progresso Atual** | 60% |
 
 ---
 
@@ -21,8 +21,8 @@
 
 - [x] **FASE 1: Fundação** - 100% completa
 - [x] **FASE 2: Autenticação** - 100% completa ✅
-- [ ] **FASE 3: Modelos de Dados** - 50% completa
-- [ ] **FASE 4: Integração WhatsApp** - 0% completa
+- [x] **FASE 3: Modelos de Dados** - 100% completa ✅
+- [x] **FASE 4: Integração WhatsApp** - 100% completa ✅
 - [ ] **FASE 5: Integração Telegram** - 0% completa
 - [ ] **FASE 6: Automações** - 10% completa
 - [ ] **FASE 7: Integração LLM GLM** - 0% completa
@@ -36,11 +36,11 @@
 
 Funcionalidades essenciais para o lançamento:
 
-- [ ] Autenticação com confirmação por email
-- [ ] Cadastro de bots WhatsApp e Telegram
+- [x] Autenticação com confirmação por email
+- [x] Cadastro de bots WhatsApp
 - [ ] Respostas automáticas configuráveis
 - [ ] Integração com LLM GLM para atendimento
-- [ ] Dashboard básico com estatísticas
+- [x] Dashboard básico com estatísticas
 - [ ] Histórico de conversas
 
 ---
@@ -54,7 +54,7 @@ Funcionalidades essenciais para o lançamento:
 - [x] Setup do projeto FastAPI
 - [x] Configuração MongoDB (docker-compose)
 - [x] Configuração Redis para cache/filas
-- [x] Estrutura de pastas e módulos (Clean Architecture)
+- [x] Estrutura de pastas e módulos (Clean Architecture / DDD)
 - [x] Pydantic schemas base
 - [x] Configuração variáveis ambiente (.env)
 - [x] Setup de logging e monitoramento
@@ -71,13 +71,14 @@ Funcionalidades essenciais para o lançamento:
 - [x] Sistema de temas (dark/light)
 - [x] Estado global (Zustand)
 - [x] Tipos TypeScript
-- [x] Cliente HTTP configurado
+- [x] Cliente HTTP configurado (Axios + nginx proxy)
 
 #### DevOps ✅
 - [x] Docker Compose completo
 - [x] Setup de variáveis ambiente
 - [x] Dockerfiles (backend + frontend)
-- [ ] Repositório Git + .gitignore
+- [x] Repositório Git + .gitignore
+- [x] Nginx com proxy reverso para API
 
 ---
 
@@ -88,25 +89,26 @@ Funcionalidades essenciais para o lançamento:
 - [x] Modelo User no MongoDB (entidade criada)
 - [x] Repositório MongoDB implementado
 - [x] Registro de usuário
-- [x] Login JWT
+- [x] Login JWT (access + refresh tokens)
 - [x] Confirmação por email (Postfix + templates HTML)
-- [x] Confirmação por WhatsApp (sem SMS - custo zero)
+- [x] Confirmação por telefone
 - [x] Recuperação de senha
 - [x] Middleware de autenticação
 - [x] Refresh token
+- [x] Password hashing com bcrypt nativo
 
 #### Frontend ✅
-- [x] Página de Login
+- [x] Página de Login (com dark mode e toggle de senha)
 - [x] Página de Cadastro
 - [x] Confirmação de email
-- [x] Confirmação de telefone (WhatsApp)
+- [x] Confirmação de telefone
 - [x] Recuperação de senha
 - [x] Protected routes
-- [x] Context de autenticação (Zustand store)
+- [x] Store de autenticação (Zustand + persist)
 
 ---
 
-### FASE 3: Modelos de Dados Core (Semana 4) ✅ 50%
+### FASE 3: Modelos de Dados Core (Semana 4) ✅ 100%
 **Objetivo:** Estrutura de dados principal
 
 #### Backend ✅
@@ -114,37 +116,37 @@ Funcionalidades essenciais para o lançamento:
 - [x] Modelo Bot (whatsapp, telegram)
 - [x] Modelo Conversation
 - [x] Modelo Message
-- [ ] Modelo Analytics/Metrics
-- [ ] Relacionamentos e índices
-- [ ] Seeds de dados iniciais
-- [ ] Repositórios MongoDB implementados
+- [x] Modelo Analytics/Metrics
+- [x] Relacionamentos e índices
+- [x] Seeds de dados iniciais (planos + usuário teste)
+- [x] Repositórios MongoDB implementados
 
 #### Frontend
-- [ ] Dashboard home
-- [ ] Navigation completa
-- [ ] Sidebar de navegação
-- [ ] Header com perfil usuário
+- [x] Dashboard home
+- [x] Navigation completa
+- [x] Sidebar de navegação
+- [x] Header com perfil usuário
+- [x] HomePage com hero, features e planos
 
 ---
 
-### FASE 4: Integração WhatsApp (Semana 5-6)
+### FASE 4: Integração WhatsApp (Semana 5-6) ✅ 100%
 **Objetivo:** Bots de WhatsApp funcionando
 
-#### Backend
-- [ ] Setup Baileys (WhatsApp open-source) ou Evolution API
-- [ ] Geração de QR Code para conexão
-- [ ] Recebimento de mensagens
-- [ ] Envio de mensagens
-- [ ] Webhook system
-- [ ] Handler de desconexão
-- [ ] Reconnection logic
-- [ ] Upload de mídia
+#### Backend ✅
+- [x] Setup Evolution API
+- [x] Geração de QR Code para conexão
+- [x] Recebimento de mensagens
+- [x] Envio de mensagens
+- [x] Webhook system
+- [x] Status de conexão
+- [x] Conexão por telefone (pairing code)
 
-#### Frontend
-- [ ] Página "Adicionar Bot WhatsApp"
-- [ ] Display QR Code
-- [ ] Status de conexão
-- [ ] Teste de envio
+#### Frontend ✅
+- [x] Página "Adicionar Bot WhatsApp"
+- [x] Display QR Code
+- [x] Status de conexão
+- [x] Formatação de número de telefone
 
 ---
 
@@ -231,7 +233,7 @@ Funcionalidades essenciais para o lançamento:
 - [ ] Trial period
 
 #### Frontend
-- [ ] Página de planos
+- [x] Página de planos (já no HomePage)
 - [ ] Checkout
 - [ ] Gestão de assinatura
 - [ ] Histórico de pagamentos
@@ -258,107 +260,15 @@ Funcionalidades essenciais para o lançamento:
 
 ## 🗄️ Modelos de Dados (MongoDB)
 
-### Collections Overview
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        DATABASE STRUCTURE                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│  │    users     │◄────►│     bots     │◄────►│conversations │ │
-│  └──────────────┘      └──────────────┘      └──────────────┘ │
-│         │                      │                      │         │
-│         ▼                      ▼                      ▼         │
-│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│  │    plans     │      │  automation_ │      │   messages   │ │
-│  │              │      │    rules     │◄────►│              │ │
-│  └──────────────┘      └──────────────┘      └──────────────┘ │
-│                                                      │         │
-│                                                      ▼         │
-│                                              ┌──────────────┐ │
-│                                              │    metrics   │ │
-│                                              └──────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ### Collections
-
-#### users
-```javascript
-{
-  _id: ObjectId,
-  email: String (unique),
-  phone: String,
-  emailConfirmed: Boolean,
-  phoneConfirmed: Boolean,
-  passwordHash: String,
-  name: String,
-  avatar: String,
-  plan: {
-    type: "free" | "basic" | "pro",
-    maxBots: Number,
-    maxMessagesPerMonth: Number,
-    expiresAt: Date
-  },
-  status: "active" | "suspended" | "deleted",
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-#### bots
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId (ref: users),
-  name: String,
-  type: "whatsapp" | "telegram",
-  status: "active" | "paused" | "disconnected",
-  config: {
-    token: String,
-    welcomeMessage: String,
-    autoReplyEnabled: Boolean,
-    llmEnabled: Boolean,
-    llmPrompt: String
-  },
-  stats: {
-    totalMessages: Number,
-    totalConversations: Number
-  },
-  createdAt: Date
-}
-```
-
-#### conversations
-```javascript
-{
-  _id: ObjectId,
-  botId: ObjectId (ref: bots),
-  customer: {
-    id: String,
-    name: String,
-    metadata: Object
-  },
-  status: "active" | "closed" | "archived",
-  assignedTo: ObjectId (ref: users),
-  lastMessageAt: Date,
-  createdAt: Date
-}
-```
-
-#### messages
-```javascript
-{
-  _id: ObjectId,
-  conversationId: ObjectId (ref: conversations),
-  role: "user" | "bot" | "human",
-  content: String,
-  mediaType: "text" | "image" | "video",
-  mediaUrl: String,
-  metadata: Object,
-  createdAt: Date
-}
-```
+- `users` — Usuários com plano e status
+- `bots` — Bots WhatsApp/Telegram
+- `conversations` — Conversas com clientes
+- `messages` — Mensagens das conversas
+- `analytics` — Métricas e estatísticas
+- `automation_rules` — Regras de automação
+- `plans_config` — Configuração dos planos
+- `system_settings` — Configurações do sistema
 
 ---
 
@@ -368,64 +278,55 @@ Funcionalidades essenciais para o lançamento:
 | Componente | Tecnologia | Status |
 |------------|------------|--------|
 | API | FastAPI | ✅ |
-| ORM | Motor (async MongoDB) | ✅ Config |
-| Auth | JWT + Passlib | ⏳ Implementar |
-| WhatsApp | Evolution API | ⏳ |
+| Database | Motor (async MongoDB) | ✅ |
+| Auth | JWT + bcrypt | ✅ |
+| WhatsApp | Evolution API | ✅ |
 | Telegram | python-telegram-bot | ⏳ |
 | Queue | Redis + ARQ | ✅ Config |
 | Validation | Pydantic v2 | ✅ |
-| LLM | OpenAI-compatible | ⏳ |
+| LLM | GLM (OpenAI-compatible) | ⏳ |
 
 ### Frontend
 | Componente | Tecnologia | Status |
 |------------|------------|--------|
 | Framework | React 18 + Vite | ✅ |
 | Language | TypeScript | ✅ |
-| Styling | Tailwind CSS | ✅ |
-| State | Zustand | ⏳ |
-| Router | React Router v6 | ⏳ |
-| Forms | React Hook Form | ⏳ |
-| Real-time | Socket.io | ⏳ |
-| HTTP | Axios | ✅ |
+| Styling | Tailwind CSS + Dark Mode | ✅ |
+| State | Zustand + persist | ✅ |
+| Router | React Router v6 | ✅ |
+| HTTP | Axios + nginx proxy | ✅ |
 
 ---
 
-## 🎉 Implementações Recentes
+## 🔑 Credenciais de Teste
 
-### ✅ Email SMTP (Postfix)
-- Servidor Postfix Docker configurado
-- Templates HTML para emails transacionais
-- Suporte a DKIM/SPF
-- Domínio: rodney.website
-- Guia de configuração DNS em `/docs/CONFIGURACAO_DNS_EMAIL.md`
-
-### ✅ Verificação via WhatsApp (Sem Custo)
-- Substitui SMS por WhatsApp
-- Usa Evolution API (integração futura)
-- Custo: R$ 0
-- Código de 6 dígitos enviado via mensagem
+| Campo | Valor |
+|-------|-------|
+| **Email** | admin@autochat.com |
+| **Senha** | Admin@123 |
+| **Plano** | Pro |
+| **Email confirmado** | Sim |
 
 ---
 
-## 📝 Critérios de Sucesso
+## 🐛 Bugs Corrigidos (Sessão 01/06/2026)
 
-- [ ] Usuário consegue se cadastrar e confirmar email
-- [ ] Usuário consegue conectar bot WhatsApp
-- [ ] Usuário consegue conectar bot Telegram
-- [ ] Bot responde automaticamente
-- [ ] Bot usa LLM para atendimento
-- [ ] Dashboard mostra conversas em tempo real
-- [ ] Onboarding é claro e intuitivo
+1. **bcrypt incompatível** — passlib 1.7.4 não suporta bcrypt 5.x
+2. **Formato de erro inconsistente** — Padronizado para PT `{erro: {codigo, mensagem}}`
+3. **timedelta não importado** — Entidade Usuario
+4. **CORS** — Liberado para qualquer origem em desenvolvimento
+5. **TypeScript errors** — Corrigidos todos (AddBotPage, ConfirmPhonePage, etc.)
+6. **Seed de teste** — Adicionado usuário admin automaticamente
+7. **Frontend API URL** — Mudado para URL relativa via nginx proxy
 
 ---
 
 ## 🚀 Próximos Passos Prioritários
 
-1. **Implementar repositórios MongoDB** (Infrastructure layer)
-2. **Criar caso de uso de autenticação** (Register, Login)
-3. **Implementar endpoints de auth** (API layer)
-4. **Criar páginas de login/cadastro** (Frontend)
-5. **Integrar WhatsApp** (Evolution API)
+1. **Integração Telegram** (FASE 5)
+2. **Sistema de Automações** (FASE 6)
+3. **Integração LLM GLM** (FASE 7)
+4. **Chat em Tempo Real** (FASE 8)
 
 ---
 
