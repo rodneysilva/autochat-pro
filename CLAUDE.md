@@ -186,6 +186,30 @@ Usuário conecta WhatsApp → Salva bot no MongoDB (user_id) → Redireciona Das
 - `frontend/src/infrastructure/api/conversations.service.ts` — API client de conversas e dashboard
 - `frontend/src/presentation/pages/ConversationsPage.tsx` — Lista de conversas com filtros
 
+### FASE 9 — Automações
+- `backend/src/infrastructure/repositories/automation_rule_repository_impl.py` — MongoDB repo completo
+- `backend/src/application/dto/automation_rule_dto.py` — CriarRegraRequest, AtualizarRegraRequest, RegraResponse
+- `backend/src/application/use_cases/*_automation_rule_use_case.py` — CRUD + toggle
+- `backend/src/api/v1/endpoints/automations.py` — POST/GET/PUT/DELETE /automations + toggle
+- `backend/src/application/services/message_processor.py` — Integrado: avalia regras antes de chamar LLM
+- `frontend/src/presentation/pages/AutomationsPage.tsx` — CRUD de regras com condition/action builder
+- `frontend/src/infrastructure/api/automations.service.ts` — API client
+
+### FASE 10 — LLM Avançado
+- `backend/src/infrastructure/external_services/llm/llm_service.py` — Multi-provider (GLM, OpenAI, Anthropic, Ollama)
+- `backend/src/application/services/conversation_context.py` — Histórico de conversa pra contexto LLM
+- `backend/src/api/v1/endpoints/chat.py` — /chat/stream (SSE), /chat/complete, /chat/providers
+- `backend/src/application/services/message_processor.py` — Usa LLMService + ConversationContext
+- `frontend/src/presentation/pages/BotConfigPage.tsx` — Provider/model/temperature/context config
+
+## Deploy
+- **URL:** https://autochat.rodney.website (frontend)
+- **API:** https://autochat.rodney.website/api/v1/
+- **Swagger:** https://autochat.rodney.website/docs
+- **Docker:** 7 containers (backend, frontend, mongodb, redis, postfix, evolution-api, evolution-db)
+- **Nginx:** Reverse proxy em localhost:80 → Cloudflare tunnel wildcard
+- **Git:** https://github.com/rodneysilva/autochat-pro.git
+
 ## Preferências
 
 - Idioma: sempre português
