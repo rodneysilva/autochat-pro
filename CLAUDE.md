@@ -105,6 +105,14 @@ O handler global em `main.py` formata automaticamente quando se usa `BaseAppExce
 12. **Número sem DDI no frontend**: input só tinha DDD+número mas não adicionava 55 → corrigido em AddBotPage.tsx
 13. **Formato de erro dos endpoints WhatsApp**: `{error: {code, message}}` → `{erro: {codigo, mensagem}}`
 
+### Sessão 2026-06-01 #3 — Phone pairing robustez
+14. **pairingCode null em reconexão**: instância presa em connecting não gerava novo código → backend agora deleta e recria instância em estado close/connecting antes de reconectar
+15. **Tela presa em "Aguardando conexão"**: polling nunca parava → adicionado detecção de disconnected/error + timeout de 3 min
+16. **Sem feedback de expiração**: usuário não sabia quanto tempo tinha → adicionado timer visual de 3 min com contagem regressiva (fica vermelho nos últimos 30s)
+17. **pairingCode null sem erro**: backend retornava null silenciosamente → agora retorna erro 503 com mensagem clara
+
+## Progresso
+
 ## Progresso
 
 - ✅ FASE 1-2: Infraestrutura e autenticação
