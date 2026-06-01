@@ -44,6 +44,31 @@ docker compose up -d
 - Frontend: http://localhost:5174
 - Evolution API: http://localhost:8090
 
+### Backend API v1
+
+| Grupo | Endpoints |
+|-------|-----------|
+| Auth | POST /auth/login, /auth/register, GET /auth/me |
+| Bots | POST /bots, GET /bots, GET /bots/{id}, PUT /bots/{id}, DELETE /bots/{id}, POST /bots/{id}/pause, POST /bots/{id}/resume |
+| WhatsApp | POST /whatsapp/connect/qrcode, POST /whatsapp/connect/phone, GET /whatsapp/instances/{name}/status, POST /whatsapp/webhook/{name} |
+| Dashboard | GET /dashboard/metrics, GET /conversations |
+| Contatos | GET /contacts, DELETE /contacts/{id} |
+| Planos | GET /plans, GET /plan/current, POST /plan/upgrade |
+
+### Rotas Frontend
+
+| Rota | Página |
+|------|-------|
+| /dashboard | Dashboard com stats e bots |
+| /add-bot | Conectar WhatsApp (QR/phone) |
+| /bots | Listar e gerenciar bots |
+| /bots/:botId/config | Configurar bot (mensagens, horário, IA) |
+| /conversations | Lista de conversas |
+| /contacts | Lista de contatos/leads |
+| /pricing | Planos e preços |
+| /automations | (em breve) |
+| /settings | (em breve) |
+
 ## Arquitetura (DDD)
 
 ```
@@ -65,7 +90,7 @@ frontend/src/
 
 ## Páginas Frontend
 
-`HomePage` · `LoginPage` · `RegisterPage` · `DashboardPage` · `AddBotPage` · `ConfirmEmailPage` · `ConfirmPhonePage` · `ForgotPasswordPage` · `ResetPasswordPage`
+`HomePage` · `LoginPage` · `RegisterPage` · `DashboardPage` · `AddBotPage` · `BotConfigPage` · `BotsPage` · `ConversationsPage` · `ContactsPage` · `PricingPage` · `ConfirmEmailPage` · `ConfirmPhonePage` · `ForgotPasswordPage` · `ResetPasswordPage`
 
 ## Integração WhatsApp (Evolution API v2)
 
@@ -119,8 +144,8 @@ O handler global em `main.py` formata automaticamente quando se usa `BaseAppExce
 - ✅ FASE 4.5: Persistência de bots e fluxo pós-conexão
 - ✅ FASE 5: Integração IA (GLM) — GLMService, MessageProcessor, webhook receiver
 - ✅ FASE 6: Conversas e métricas — Dashboard metrics, ConversationsPage
-- 🔜 FASE 7: Gerenciamento de contatos/leads
-- 🔜 FASE 8: Planos e billing
+- ✅ FASE 7: Contatos/Leads — Entidade Contato, repositório, endpoints, ContactsPage
+- ✅ FASE 8: Planos e Billing — Free/Basic/Pro, upgrade, PricingPage
 
 ## Fluxo completo implementado
 ```
