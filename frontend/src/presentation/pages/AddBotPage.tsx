@@ -53,9 +53,12 @@ export default function AddBotPage() {
           return
         }
 
+        // Adicionar DDI 55 (Brasil) se não presente
+        const fullPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone
+
         const result = await whatsappService.connectWithPhone({
           instance_name: instanceName,
-          phone_number: cleanPhone,
+          phone_number: fullPhone,
         })
 
         setPairingCode(result.pairing_code || JSON.stringify(result))

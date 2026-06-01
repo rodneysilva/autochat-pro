@@ -124,12 +124,12 @@ async def create_instance(
             qrcode=qrcode,
         )
     except BaseAppException as e:
-        raise e.to_http_exception()
+        raise e
     except Exception as e:
         logger.error(f"Erro ao criar instância: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao criar instância"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao criar instância"}}
         )
 
 
@@ -150,7 +150,7 @@ async def list_instances(
         logger.error(f"Erro ao listar instâncias: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao listar instâncias"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao listar instâncias"}}
         )
 
 
@@ -179,7 +179,7 @@ async def get_instance(
         logger.error(f"Erro ao obter instância: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "Instância não encontrada"}}
+            detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Instância não encontrada"}}
         )
 
 
@@ -201,7 +201,7 @@ async def delete_instance(
         logger.error(f"Erro ao deletar instância: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao deletar instância"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao deletar instância"}}
         )
 
 
@@ -223,7 +223,7 @@ async def logout_instance(
         logger.error(f"Erro ao fazer logout: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao fazer logout"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao fazer logout"}}
         )
 
 
@@ -260,7 +260,7 @@ async def connect_with_qrcode(
         logger.error(f"Erro ao conectar via QR: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao gerar QR Code"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao gerar QR Code"}}
         )
 
 
@@ -281,7 +281,7 @@ async def get_qrcode(
         if not qrcode:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": {"code": "NO_QRCODE", "message": "QR Code não disponível"}}
+                detail={"erro": {"codigo": "NO_QRCODE", "mensagem": "QR Code não disponível"}}
             )
 
         return {"instance": instance_name, "qrcode": qrcode}
@@ -291,7 +291,7 @@ async def get_qrcode(
         logger.error(f"Erro ao obter QR Code: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao obter QR Code"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao obter QR Code"}}
         )
 
 
@@ -326,14 +326,14 @@ async def connect_with_phone(
         return {
             "instance": request.instance_name,
             "message": "Código de pareamento gerado. Use no WhatsApp mobile.",
-            "pairing_code": result.get("code", result),
+            "pairing_code": result.get("pairingCode", result.get("code", "")),
             "status": await whatsapp.get_instance_status(request.instance_name),
         }
     except Exception as e:
         logger.error(f"Erro ao conectar via telefone: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao conectar via telefone"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao conectar via telefone"}}
         )
 
 
@@ -359,7 +359,7 @@ async def check_phone_status(
         logger.error(f"Erro ao verificar status: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao verificar status"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao verificar status"}}
         )
 
 
@@ -397,7 +397,7 @@ async def send_text(
         logger.error(f"Erro ao enviar texto: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao enviar mensagem"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao enviar mensagem"}}
         )
 
 
@@ -431,7 +431,7 @@ async def send_media(
         logger.error(f"Erro ao enviar mídia: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao enviar mídia"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao enviar mídia"}}
         )
 
 
@@ -454,7 +454,7 @@ async def get_messages(
         logger.error(f"Erro ao obter mensagens: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao obter mensagens"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao obter mensagens"}}
         )
 
 
@@ -487,7 +487,7 @@ async def set_webhook(
         logger.error(f"Erro ao configurar webhook: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao configurar webhook"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao configurar webhook"}}
         )
 
 
@@ -509,7 +509,7 @@ async def get_webhook(
         logger.error(f"Erro ao obter webhook: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao obter webhook"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao obter webhook"}}
         )
 
 
@@ -540,7 +540,7 @@ async def get_instance_status(
         logger.error(f"Erro ao obter status: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "Erro ao obter status"}}
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao obter status"}}
         )
 
 

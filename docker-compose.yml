@@ -153,7 +153,7 @@ services:
     environment:
       - SERVER_PORT=8080
       - AUTHENTICATION_TYPE=apikey
-      - API_KEY=evolution_api_key_secret_change_in_production
+      - API_KEY=429683C4C977415CAAFCCE10F7D57E11
       - DATABASE_PROVIDER=postgresql
       - DATABASE_URL=postgresql://evo:evo123@evolution-db:5432/evolution?schema=public
       - DATABASE_CONNECTION_URI=postgresql://evo:evo123@evolution-db:5432/evolution?schema=public

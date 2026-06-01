@@ -173,7 +173,9 @@ class EvolutionWhatsAppService:
         """
         try:
             info = await self.get_instance_info(instance_name)
-            state = info.get("state", "disconnected")
+            # Evolution API v2 retorna state aninhado em "instance"
+            instance_data = info.get("instance", info)
+            state = instance_data.get("state", "disconnected")
 
             # Mapear estados Evolution para nossos enums
             status_map = {
@@ -257,8 +259,7 @@ class EvolutionWhatsAppService:
         """
         Conecta usando número de telefone (code pairing).
 
-        Evolution API v2: POST /instance/connect/{instanceName}
-        com body {"number": "5511999999999"}
+        Evolution API v2: GET /instance/connect/{instanceName}?number={phone_number}
 
         Args:
             instance_name: Nome da instância.
@@ -273,13 +274,13 @@ class EvolutionWhatsAppService:
         except Exception:
             pass  # Instância já existe
 
-        # Iniciar pairing por telefone (Evolution API v2)
-        data = {
-            "number": phone_number,
-        }
-
+        # Iniciar pairing por telefone (Evolution API v2 — GET com query param)
         logger.info(f"Iniciando pairing para {instance_name} com telefone {phone_number}")
-        result = await self._request("POST", f"/instance/connect/{instance_name}", data)
+        result = await self._request(
+            "GET",
+            f"/instance/connect/{instance_name}",
+            params={"number": phone_number},
+        )
 
         return result
 
@@ -290,13 +291,15 @@ class EvolutionWhatsAppService:
         """
         Verifica status do pairing por telefone.
 
+        Evolution API v2: GET /instance/connectionState/{instanceName}
+
         Args:
             instance_name: Nome da instância.
 
         Returns:
             Status do pairing.
         """
-        return await self._request("GET", f"/baileys/auth/login/phone/{instance_name}")
+        return await self._request("GET", f"/instance/connectionState/{instance_name}")
 
     # ========================================
     # Messaging
