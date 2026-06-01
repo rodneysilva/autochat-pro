@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../components/ui/ThemeToggle'
@@ -13,6 +13,35 @@ export default function AddBotPage() {
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [timeLeft, setTimeLeft] = useState(180) // 3 minutos
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Timer de contagem regressiva
+  useEffect(() => {
+    if (status === 'pairing' || status === 'qrcode') {
+      setTimeLeft(180)
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current)
+            setStatus('error')
+            setError('Tempo esgotado. O código expirou. Tente novamente.')
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [status])
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
 
   const formatPhoneNumber = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
@@ -72,21 +101,45 @@ export default function AddBotPage() {
   }
 
   const startStatusPoll = (instance: string) => {
+    let pollCount = 0
+    const MAX_POLLS = 90 // ~3 minutos (90 x 2s)
+
     const interval = setInterval(async () => {
+      pollCount++
       try {
         const statusResult = await whatsappService.getStatus(instance)
+
         if (statusResult.connected) {
           setStatus('connected')
           clearInterval(interval)
           setQrCode(null)
           setPairingCode(null)
           setTimeout(() => navigate('/dashboard'), 1500)
+          return
         }
-      } catch (err) {
-        // Ignorar erros durante polling
+
+        // Se status é "disconnected" ou "error", a conexão falhou
+        if (statusResult.status === 'disconnected' || statusResult.status === 'error') {
+          clearInterval(interval)
+          setStatus('error')
+          setError('Conexão falhou. O código pode ter expirado. Tente novamente.')
+        }
+
+        // Timeout: parar polling após MAX_POLLS
+        if (pollCount >= MAX_POLLS) {
+          clearInterval(interval)
+          setStatus('error')
+          setError('Tempo esgotado. O código de pareamento expirou. Tente novamente.')
+        }
+      } catch (err: any) {
+        // Ignorar erros isolados, mas parar se instância não for encontrada (404)
+        if (err?.response?.status === 404) {
+          clearInterval(interval)
+          setStatus('error')
+          setError('Instância não encontrada. Tente novamente.')
+        }
       }
     }, 2000)
-    setTimeout(() => clearInterval(interval), 300000)
   }
 
   const handleReset = () => {
@@ -96,6 +149,8 @@ export default function AddBotPage() {
     setError('')
     setInstanceName('')
     setPhoneNumber('')
+    setTimeLeft(180)
+    if (timerRef.current) clearInterval(timerRef.current)
   }
 
   return (
@@ -260,6 +315,9 @@ export default function AddBotPage() {
                 <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   Aguardando conexão...
+                  <span className={`ml-2 font-mono ${timeLeft <= 30 ? 'text-red-500 font-bold' : ''}`}>
+                    {formatTime(timeLeft)}
+                  </span>
                 </div>
 
                 <button onClick={handleReset} className="mt-6 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline">
@@ -301,6 +359,9 @@ export default function AddBotPage() {
                 <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   Aguardando conexão...
+                  <span className={`ml-2 font-mono ${timeLeft <= 30 ? 'text-red-500 font-bold' : ''}`}>
+                    {formatTime(timeLeft)}
+                  </span>
                 </div>
 
                 <button onClick={handleReset} className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline">

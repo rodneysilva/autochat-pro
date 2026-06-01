@@ -323,10 +323,17 @@ async def connect_with_phone(
             request.phone_number
         )
 
+        pairing_code = result.get("pairingCode", result.get("code", ""))
+        if not pairing_code:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"erro": {"codigo": "PAIRING_FAILED", "mensagem": "Não foi possível gerar o código de pareamento. Tente novamente."}}
+            )
+
         return {
             "instance": request.instance_name,
             "message": "Código de pareamento gerado. Use no WhatsApp mobile.",
-            "pairing_code": result.get("pairingCode", result.get("code", "")),
+            "pairing_code": pairing_code,
             "status": await whatsapp.get_instance_status(request.instance_name),
         }
     except Exception as e:

@@ -261,6 +261,9 @@ class EvolutionWhatsAppService:
 
         Evolution API v2: GET /instance/connect/{instanceName}?number={phone_number}
 
+        Se a instância já existir e estiver em estado close/connecting/error,
+        ela é deletada e recriada para gerar um novo pairing code.
+
         Args:
             instance_name: Nome da instância.
             phone_number: Número com DDI (ex: 5511999999999).
@@ -268,6 +271,22 @@ class EvolutionWhatsAppService:
         Returns:
             Dados com pairingCode.
         """
+        # Verificar se instância já existe e precisa ser recriada
+        try:
+            existing = await self.list_instances()
+            for inst in existing:
+                if inst.get("name") == instance_name:
+                    state = inst.get("connectionStatus", "")
+                    if state in ("close", "connecting", "refused"):
+                        logger.info(f"Instância {instance_name} em estado {state}, deletando para recriar")
+                        try:
+                            await self.delete_instance(instance_name)
+                        except Exception:
+                            pass
+                    break
+        except Exception:
+            pass  # Seguir sem verificar
+
         # Criar instância sem QR Code
         try:
             await self.create_instance(instance_name, qrcode=False)
