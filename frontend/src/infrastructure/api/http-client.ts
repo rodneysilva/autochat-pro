@@ -41,6 +41,7 @@ export class HttpClient {
   private refreshToken?: () => Promise<string | null>
   private onUnauthorized?: () => void
   private isRefreshing = false
+  private pendingRequests: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = []
 
   constructor(config: HttpClientConfig = {}) {
     const {
@@ -90,8 +91,14 @@ export class HttpClient {
 
         // Erro 401 - Não autorizado
         if (error.response?.status === 401 && !originalRequest._retry) {
+          // Se já está fazendo refresh, enfileirar a request
           if (this.isRefreshing) {
-            return Promise.reject(error)
+            return new Promise<string>((resolve, reject) => {
+              this.pendingRequests.push({ resolve, reject })
+            }).then((newToken) => {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`
+              return this.client(originalRequest)
+            })
           }
 
           originalRequest._retry = true
@@ -100,16 +107,29 @@ export class HttpClient {
           try {
             const newToken = await this.refreshToken?.()
             if (newToken) {
-              this.isRefreshing = false
+              // Resolver requests pendentes com o novo token
+              this.pendingRequests.forEach(({ resolve }) => resolve(newToken))
+              this.pendingRequests = []
+
               originalRequest.headers.Authorization = `Bearer ${newToken}`
               return this.client(originalRequest)
             }
-          } catch {
+          } catch (refreshError) {
+            // Rejeitar requests pendentes
+            this.pendingRequests.forEach(({ reject }) => reject(refreshError))
+            this.pendingRequests = []
+
+            // Refresh falhou — fazer logout
+            this.onUnauthorized?.()
+            return Promise.reject(refreshError)
+          } finally {
             this.isRefreshing = false
           }
+        }
 
+        // Se 401 e já tentou refresh (_retry=true), fazer logout
+        if (error.response?.status === 401 && originalRequest._retry) {
           this.onUnauthorized?.()
-          return Promise.reject(error)
         }
 
         // Outros erros

@@ -5,12 +5,15 @@ Métricas e listagem de conversas para o dashboard.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 from src.api.middleware.auth import get_current_user
 from src.shared.utils.logger import get_logger
 
 from src.infrastructure.database.seeds import PLANS_CONFIG
+from src.infrastructure.database.mongodb import MongoDB
 
 logger = get_logger(__name__)
 
@@ -58,6 +61,24 @@ async def get_dashboard_metrics(
         total_conversations = sum(b.estatisticas.total_conversas for b in bots)
         ia_active = sum(1 for b in bots if b.llm_config.ativado)
 
+        # Métricas avançadas
+        db = MongoDB.get_database()
+        bot_object_ids = [b.id for b in bots]
+
+        # Mensagens de hoje
+        from datetime import datetime, timezone
+        hoje_inicio = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        mensagens_hoje = await db.messages.count_documents({
+            "bot_id": {"$in": bot_object_ids},
+            "created_at": {"$gte": hoje_inicio},
+        })
+
+        # Conversas ativas
+        conversas_ativas = await db.conversations.count_documents({
+            "bot_id": {"$in": bot_object_ids},
+            "status": "active",
+        })
+
         return {
             "bots": {
                 "total": total_bots,
@@ -66,9 +87,11 @@ async def get_dashboard_metrics(
             },
             "mensagens": {
                 "total": total_messages,
+                "hoje": mensagens_hoje,
             },
             "conversas": {
                 "total": total_conversations,
+                "ativas": conversas_ativas,
             },
             "ia": {
                 "ativa": ia_active > 0,
@@ -84,7 +107,434 @@ async def get_dashboard_metrics(
 
 
 # ========================================
-# Conversas
+# Dashboard — Timeline de mensagens
+# ========================================
+
+@router.get(
+    "/dashboard/metrics/timeline",
+    summary="Timeline de mensagens",
+    description="Retorna contagem de mensagens por dia nos últimos 30 dias.",
+)
+async def get_message_timeline(
+    current_user=Depends(get_current_user),
+):
+    """Retorna mensagens agrupadas por dia (últimos 30 dias)."""
+    try:
+        bot_repo = _get_bot_repo()
+        bots = await bot_repo.listar_por_usuario(str(current_user.id))
+        bot_object_ids = [b.id for b in bots]
+
+        from datetime import datetime, timezone, timedelta
+        db = MongoDB.get_database()
+
+        trinta_dias_atras = datetime.now(timezone.utc) - timedelta(days=30)
+
+        pipeline = [
+            {
+                "$match": {
+                    "bot_id": {"$in": bot_object_ids},
+                    "created_at": {"$gte": trinta_dias_atras},
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"},
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$sort": {"_id": 1}},
+        ]
+
+        results = await db.messages.aggregate(pipeline).to_list(31)
+
+        return [
+            {"date": r["_id"], "count": r["count"]}
+            for r in results
+        ]
+    except Exception as e:
+        logger.error(f"Erro ao buscar timeline: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao buscar timeline"}},
+        )
+
+
+# ========================================
+# Dashboard — Top contatos
+# ========================================
+
+@router.get(
+    "/dashboard/metrics/top-contacts",
+    summary="Top contatos por volume",
+    description="Retorna top 10 contatos com mais mensagens.",
+)
+async def get_top_contacts(
+    current_user=Depends(get_current_user),
+):
+    """Retorna top 10 contatos por volume de mensagens."""
+    try:
+        bot_repo = _get_bot_repo()
+        bots = await bot_repo.listar_por_usuario(str(current_user.id))
+        bot_object_ids = [b.id for b in bots]
+
+        db = MongoDB.get_database()
+
+        pipeline = [
+            {
+                "$match": {
+                    "bot_id": {"$in": bot_object_ids},
+                    "role": "customer",
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$customer_id",
+                    "count": {"$sum": 1},
+                    "lastMessage": {"$last": "$content"},
+                }
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 10},
+        ]
+
+        results = await db.messages.aggregate(pipeline).to_list(10)
+
+        contacts = []
+        for r in results:
+            customer_id = r["_id"]
+            # Buscar nome do contato se disponível
+            nome = customer_id
+            conv = await db.conversations.find_one({
+                "customer.id": customer_id,
+                "bot_id": {"$in": bot_object_ids},
+            }, sort=[("created_at", -1)])
+            if conv and conv.get("customer"):
+                nome = conv["customer"].get("name", customer_id)
+                if not nome:
+                    nome = conv["customer"].get("push_name", customer_id)
+
+            contacts.append({
+                "id": customer_id,
+                "name": nome,
+                "count": r["count"],
+                "lastMessage": (r["lastMessage"] or "")[:100],
+            })
+
+        return contacts
+    except Exception as e:
+        logger.error(f"Erro ao buscar top contatos: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao buscar top contatos"}},
+        )
+
+
+# ========================================
+# Conversas — Ações
+# ========================================
+
+class AssignRequest(BaseModel):
+    user_id: str
+
+
+@router.get(
+    "/conversations/{conversation_id}/messages",
+    summary="Mensagens da conversa",
+    description="Retorna todas as mensagens de uma conversa.",
+)
+async def get_conversation_messages(
+    conversation_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Retorna mensagens de uma conversa."""
+    try:
+        from bson import ObjectId
+        db = MongoDB.get_database()
+
+        # Verificar permissão
+        conv = await db.conversations.find_one({"_id": ObjectId(conversation_id)})
+        if not conv:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Conversa não encontrada"}},
+            )
+
+        bot_repo = _get_bot_repo()
+        bots = await bot_repo.listar_por_usuario(str(current_user.id))
+        bot_ids = [str(b.id) for b in bots]
+
+        if str(conv.get("bot_id", "")) not in bot_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"erro": {"codigo": "FORBIDDEN", "mensagem": "Conversa não pertence a este usuário"}},
+            )
+
+        messages = await db.messages.find(
+            {"conversation_id": ObjectId(conversation_id)}
+        ).sort("created_at", 1).to_list(200)
+
+        return [
+            {
+                "id": str(m["_id"]),
+                "role": m.get("role", "unknown"),
+                "content": m.get("content", ""),
+                "media_type": m.get("media_type"),
+                "created_at": m.get("created_at").isoformat() if m.get("created_at") else None,
+            }
+            for m in messages
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao buscar mensagens da conversa: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao buscar mensagens da conversa"}},
+        )
+
+
+@router.put(
+    "/conversations/{conversation_id}/assign",
+    summary="Atribuir conversa a humano",
+    description="Atribui uma conversa a um atendente humano.",
+)
+async def assign_conversation(
+    conversation_id: str,
+    body: AssignRequest,
+    current_user=Depends(get_current_user),
+):
+    """Atribui conversa a atendente humano."""
+    try:
+        from bson import ObjectId
+        db = MongoDB.get_database()
+
+        conv = await db.conversations.find_one({"_id": ObjectId(conversation_id)})
+        if not conv:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Conversa não encontrada"}},
+            )
+
+        bot_repo = _get_bot_repo()
+        bots = await bot_repo.listar_por_usuario(str(current_user.id))
+        bot_ids = [str(b.id) for b in bots]
+        if str(conv.get("bot_id", "")) not in bot_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"erro": {"codigo": "FORBIDDEN", "mensagem": "Conversa não pertence a este usuário"}},
+            )
+
+        await db.conversations.update_one(
+            {"_id": ObjectId(conversation_id)},
+            {
+                "$set": {
+                    "status": "waiting",
+                    "assigned_to": body.user_id,
+                    "updated_at": datetime.utcnow(),
+                }
+            },
+        )
+
+        # Emitir evento WebSocket
+        try:
+            from src.api.v1.endpoints.websocket import get_ws_manager
+            await get_ws_manager().broadcast_to_user(str(current_user.id), {
+                "event": "conversation.updated",
+                "data": {
+                    "conversation_id": conversation_id,
+                    "status": "waiting",
+                    "assigned_to": body.user_id,
+                }
+            })
+        except Exception:
+            pass
+
+        return {"message": "Conversa atribuída com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atribuir conversa: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao atribuir conversa"}},
+        )
+
+
+@router.put(
+    "/conversations/{conversation_id}/close",
+    summary="Fechar conversa",
+    description="Fecha uma conversa.",
+)
+async def close_conversation(
+    conversation_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Fecha uma conversa."""
+    try:
+        from bson import ObjectId
+        db = MongoDB.get_database()
+
+        conv = await db.conversations.find_one({"_id": ObjectId(conversation_id)})
+        if not conv:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Conversa não encontrada"}},
+            )
+
+        bot_repo = _get_bot_repo()
+        bots = await bot_repo.listar_por_usuario(str(current_user.id))
+        bot_ids = [str(b.id) for b in bots]
+        if str(conv.get("bot_id", "")) not in bot_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"erro": {"codigo": "FORBIDDEN", "mensagem": "Conversa não pertence a este usuário"}},
+            )
+
+        await db.conversations.update_one(
+            {"_id": ObjectId(conversation_id)},
+            {"$set": {"status": "closed", "updated_at": datetime.utcnow()}},
+        )
+
+        # Emitir evento WebSocket
+        try:
+            from src.api.v1.endpoints.websocket import get_ws_manager
+            await get_ws_manager().broadcast_to_user(str(current_user.id), {
+                "event": "conversation.updated",
+                "data": {
+                    "conversation_id": conversation_id,
+                    "status": "closed",
+                }
+            })
+        except Exception:
+            pass
+
+        return {"message": "Conversa fechada com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao fechar conversa: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao fechar conversa"}},
+        )
+
+
+@router.put(
+    "/conversations/{conversation_id}/reopen",
+    summary="Reabrir conversa",
+    description="Reabre uma conversa fechada.",
+)
+async def reopen_conversation(
+    conversation_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Reabre uma conversa."""
+    try:
+        from bson import ObjectId
+        db = MongoDB.get_database()
+
+        conv = await db.conversations.find_one({"_id": ObjectId(conversation_id)})
+        if not conv:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Conversa não encontrada"}},
+            )
+
+        bot_repo = _get_bot_repo()
+        bots = await bot_repo.listar_por_usuario(str(current_user.id))
+        bot_ids = [str(b.id) for b in bots]
+        if str(conv.get("bot_id", "")) not in bot_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"erro": {"codigo": "FORBIDDEN", "mensagem": "Conversa não pertence a este usuário"}},
+            )
+
+        await db.conversations.update_one(
+            {"_id": ObjectId(conversation_id)},
+            {"$set": {"status": "active", "updated_at": datetime.utcnow()}},
+        )
+
+        # Emitir evento WebSocket
+        try:
+            from src.api.v1.endpoints.websocket import get_ws_manager
+            await get_ws_manager().broadcast_to_user(str(current_user.id), {
+                "event": "conversation.updated",
+                "data": {
+                    "conversation_id": conversation_id,
+                    "status": "active",
+                }
+            })
+        except Exception:
+            pass
+
+        return {"message": "Conversa reaberta com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao reabrir conversa: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao reabrir conversa"}},
+        )
+
+
+@router.put(
+    "/conversations/{conversation_id}/messages/{message_id}/read",
+    summary="Marcar mensagem como lida",
+    description="Marca uma mensagem específica como lida.",
+)
+async def mark_message_read(
+    conversation_id: str,
+    message_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Marca mensagem como lida."""
+    try:
+        from bson import ObjectId
+        db = MongoDB.get_database()
+
+        conv = await db.conversations.find_one({"_id": ObjectId(conversation_id)})
+        if not conv:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Conversa não encontrada"}},
+            )
+
+        bot_repo = _get_bot_repo()
+        bots = await bot_repo.listar_por_usuario(str(current_user.id))
+        bot_ids = [str(b.id) for b in bots]
+        if str(conv.get("bot_id", "")) not in bot_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"erro": {"codigo": "FORBIDDEN", "mensagem": "Conversa não pertence a este usuário"}},
+            )
+
+        result = await db.messages.update_one(
+            {"_id": ObjectId(message_id), "conversation_id": ObjectId(conversation_id)},
+            {"$set": {"read": True}},
+        )
+
+        if result.matched_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Mensagem não encontrada"}},
+            )
+
+        return {"message": "Mensagem marcada como lida"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao marcar mensagem como lida: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao marcar mensagem como lida"}},
+        )
+
+
+# ========================================
+# Contatos
 # ========================================
 
 @router.get(

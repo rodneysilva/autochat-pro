@@ -1,16 +1,31 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../application/stores'
 import { useBotsStore } from '../../application/stores'
+import { wsService } from '../../infrastructure/api/websocket.service'
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
   const { bots, fetchBots } = useBotsStore()
   const navigate = useNavigate()
+  const metricsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     fetchBots()
   }, [])
+
+  // Escutar WebSocket — metrics.updated com debounce
+  const handleMetricsUpdated = useCallback(() => {
+    if (metricsDebounceRef.current) clearTimeout(metricsDebounceRef.current)
+    metricsDebounceRef.current = setTimeout(() => {
+      fetchBots()
+    }, 2000)
+  }, [fetchBots])
+
+  useEffect(() => {
+    wsService.on('metrics.updated', handleMetricsUpdated)
+    return () => { wsService.offEvent('metrics.updated', handleMetricsUpdated) }
+  }, [handleMetricsUpdated])
 
   // Calcular stats reais dos bots
   const activeBots = bots.filter(b => b.status === 'active')

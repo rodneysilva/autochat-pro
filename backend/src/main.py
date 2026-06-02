@@ -90,7 +90,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     except Exception as e:
         logger.error(f"❌ Erro ao conectar MongoDB: {e}")
 
+
+
+
+
     yield
+
 
     logger.info("🛑 Encerrando AutoChat Pro...")
 
@@ -260,6 +265,7 @@ def criar_aplicacao() -> FastAPI:
 
 # Instância da aplicação
 app = criar_aplicacao()
+
 
 
 if __name__ == "__main__":

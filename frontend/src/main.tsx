@@ -7,10 +7,10 @@ import { HttpClientProvider } from './presentation/providers/HttpClientProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <HttpClientProvider>
       <ThemeProvider>
-        <App />
+        <HttpClientProvider>
+          <App />
+        </HttpClientProvider>
       </ThemeProvider>
-    </HttpClientProvider>
   </StrictMode>,
 )

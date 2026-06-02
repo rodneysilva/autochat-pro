@@ -631,6 +631,98 @@ async def receive_webhook(
         is_message_event = "message" in event_data or "messages" in event_data
 
     if is_message_event:
+        # === Salvar mensagem e conversação no banco ===
+        try:
+            from src.infrastructure.database.mongodb import MongoDB
+            from src.infrastructure.repositories.conversation_repository_impl import MongoConversationRepository
+            from src.infrastructure.repositories.message_repository_impl import MongoMessageRepository
+            from src.infrastructure.repositories.bot_repository_impl import MongoBotRepository
+            from src.domain.entities.conversation import PapelMensagem, TipoMensagem, StatusConversa, DadosCliente
+            from datetime import datetime, timezone
+            from bson import ObjectId
+
+            db = MongoDB.get_database()
+            conv_repo = MongoConversationRepository(db)
+            msg_repo = MongoMessageRepository(db)
+            bot_repo = MongoBotRepository(db)
+
+            bot = await bot_repo.find_by_instance_name(instance_name)
+            if not bot:
+                logger.warning(f"Bot não encontrado para instância: {instance_name}")
+            else:
+                key = event_data.get("key", {})
+                from_me = key.get("fromMe", False)
+                remote_jid = key.get("remoteJid", "")
+                msg_id = key.get("id", "")
+                push_name = event_data.get("pushName", "")
+                message = event_data.get("message", {})
+                text = (message.get("conversation", "")
+                        or message.get("extendedTextMessage", {}).get("text", "")
+                        or "")
+
+                # Detectar tipo de mídia
+                msg_type = "text"
+                media_url = None
+                for media_key in ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"]:
+                    if media_key in message:
+                        msg_type = media_key.replace("Message", "")
+                        media_url = message[media_key].get("url", "")
+                        break
+
+                if text or media_url:
+                    phone_number = remote_jid.split("@")[0]
+                    is_group = "@g.us" in remote_jid
+                    customer_name = push_name or ("Grupo" if is_group else phone_number)
+
+                    # Buscar ou criar conversa
+                    conv_filter = {"bot_id": ObjectId(str(bot.id)), "customer.id": phone_number}
+                    existing_conv = await db.conversations.find_one(conv_filter)
+
+                    if not existing_conv:
+                        new_conv = {
+                            "bot_id": ObjectId(str(bot.id)),
+                            "customer": {"id": phone_number, "name": customer_name, "phone": phone_number if not is_group else None},
+                            "status": "active",
+                            "is_group": is_group,
+                            "group_name": customer_name if is_group else None,
+                            "first_message_at": datetime.now(timezone.utc),
+                            "last_message_at": datetime.now(timezone.utc),
+                            "created_at": datetime.now(timezone.utc),
+                            "updated_at": datetime.now(timezone.utc),
+                            "message_count": 0,
+                        }
+                        result = await db.conversations.insert_one(new_conv)
+                        conv_id = result.inserted_id
+                        logger.info(f"Nova conversa criada: {phone_number} ({conv_id})")
+                    else:
+                        conv_id = existing_conv["_id"]
+                        await db.conversations.update_one(
+                            {"_id": conv_id},
+                            {"$set": {"last_message_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)}, "$inc": {"message_count": 1}}
+                        )
+
+                    # Salvar mensagem
+                    role = "bot" if from_me else "user"
+                    msg_doc = {
+                        "conversation_id": conv_id,
+                        "bot_id": ObjectId(str(bot.id)),
+                        "role": role,
+                        "content": text or f"[{msg_type}]",
+                        "media_type": msg_type,
+                        "media_url": media_url,
+                        "provider_message_id": msg_id,
+                        "customer_name": customer_name,
+                        "customer_id": phone_number,
+                        "is_group": is_group,
+                        "from_me": from_me,
+                        "created_at": datetime.now(timezone.utc),
+                    }
+                    await db.messages.insert_one(msg_doc)
+                    logger.info(f"Mensagem salva: {phone_number} | role={role} | text={text[:50]}")
+        except Exception as save_err:
+            logger.error(f"Erro ao salvar mensagem: {save_err}", exc_info=True)
+
+        # === Processar com IA ===
         try:
             from src.application.services.message_processor import get_message_processor
 

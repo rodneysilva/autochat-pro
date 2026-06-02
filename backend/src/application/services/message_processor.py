@@ -5,8 +5,10 @@ Recebe mensagens do webhook da Evolution API, busca config do bot,
 verifica horário e gera resposta com IA GLM ou mensagem padrão.
 """
 
+import asyncio
 from datetime import datetime
 from typing import Optional
+from uuid import UUID, uuid4 as _uuid4
 
 from src.infrastructure.external_services.whatsapp.evolution_service import EvolutionWhatsAppService
 from src.shared.utils.logger import get_logger
@@ -89,10 +91,14 @@ class MessageProcessor:
                         return response_id
                     return None
 
-            # Enviar saudação se for primeira mensagem (verificação simples)
-            # TODO: Implementar controle de conversa para saudação apenas na primeira msg
+            # ---- Automações: avaliar regras ANTES de LLM ----
+            automation_response = await self._try_automation_rules(
+                bot, message_text, push_name, phone_number, instance_name
+            )
+            if automation_response is not None:
+                return automation_response
 
-            # Gerar resposta
+            # Fallback: gerar resposta via LLM ou padrão
             if bot.llm_config.ativado:
                 response_text = await self._generate_llm_response(
                     bot, message_text, push_name, phone_number
@@ -120,6 +126,9 @@ class MessageProcessor:
             # Atualizar estatísticas do bot
             await self._update_bot_stats(bot)
 
+            # Emitir eventos WebSocket em tempo real
+            await self._emit_ws_events(bot, phone_number, message_text, response_id, push_name)
+
             logger.info(
                 f"Resposta enviada para {phone_number} via bot {bot.nome}"
             )
@@ -128,6 +137,149 @@ class MessageProcessor:
         except Exception as e:
             logger.error(f"Erro ao processar mensagem: {e}", exc_info=True)
             return None
+
+    async def _try_automation_rules(
+        self, bot, message_text: str, push_name: str,
+        phone_number: str, instance_name: str,
+    ) -> Optional[str]:
+        """
+        Tenta aplicar regras de automação antes de ir para o LLM.
+        Retorna o response_id se uma regra bateu e executou, ou None se deve fallback.
+        """
+        if not self._automation_repo:
+            return None
+
+        try:
+            from src.domain.entities.automation_rule import (
+                TipoAcao, RegraAutomacao,
+            )
+
+            rules = await self._automation_repo.buscar_ativas_por_bot(bot.id)
+            if not rules:
+                return None
+
+            # Ordenar por prioridade (maior primeiro)
+            rules.sort(key=lambda r: r.prioridade, reverse=True)
+
+            # Contexto para avaliação
+            contexto = {
+                "message.content": message_text,
+                "customer.name": push_name,
+                "message.type": "text",
+            }
+
+            # Gerar um conversation_id simples para cooldown
+            conv_id = _uuid4()
+
+            for rule in rules:
+                if not rule.pode_executar(conv_id):
+                    continue
+
+                if not rule.avaliar_condicoes(contexto):
+                    continue
+
+                # Regra bateu! Executar ações
+                logger.info(
+                    f"Regra de automação '{rule.nome}' acionada para {phone_number}"
+                )
+                rule.executar(conv_id)
+
+                # Processar ações ordenadas por delay
+                response_id = None
+                for delay, acao in rule.obter_acoes_com_delay():
+                    if delay > 0:
+                        logger.info(f"Aguardando {delay}s (delay da ação)...")
+                        await asyncio.sleep(delay)
+
+                    if acao.tipo == TipoAcao.RESPONDER:
+                        msg = acao.conteudo.replace("{nome}", push_name)
+                        msg = msg.replace("{telefone}", phone_number)
+                        response_id = await self._whatsapp.send_text(
+                            instance_name, phone_number, msg
+                        )
+
+                    elif acao.tipo == TipoAcao.USAR_LLM:
+                        response_text = await self._generate_llm_response(
+                            bot, message_text, push_name, phone_number
+                        )
+                        if response_text:
+                            response_id = await self._whatsapp.send_text(
+                                instance_name, phone_number, response_text
+                            )
+
+                    elif acao.tipo == TipoAcao.ENCAMINHAR:
+                        dest = acao.parametros.get("destino", "")
+                        if dest:
+                            msg = acao.conteudo or message_text
+                            try:
+                                await self._whatsapp.send_text(
+                                    instance_name, dest, msg
+                                )
+                            except Exception as e:
+                                logger.error(f"Erro ao encaminhar mensagem: {e}")
+
+                    elif acao.tipo == TipoAcao.FECHAR_CONVERSA:
+                        logger.info(f"Ação close executada para conversa de {phone_number}")
+
+                    elif acao.tipo == TipoAcao.ATRIBUIR_HUMANO:
+                        logger.info(f"Ação assign_human executada para conversa de {phone_number}")
+
+                    elif acao.tipo == TipoAcao.ADICIONAR_TAG:
+                        tag = acao.conteudo
+                        logger.info(f"Ação tag executada: tag={tag} para {phone_number}")
+
+                # Atualizar estatísticas do bot
+                await self._update_bot_stats(bot)
+
+                if response_id:
+                    logger.info(f"Resposta de automação enviada para {phone_number}")
+
+                # Emitir eventos WebSocket em tempo real
+                await self._emit_ws_events(bot, phone_number, message_text, response_id, push_name)
+
+                return response_id
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Erro ao avaliar automações: {e}", exc_info=True)
+            return None
+
+    async def _emit_ws_events(
+        self, bot, phone_number: str, message_text: str,
+        response_id: Optional[str], push_name: str,
+    ) -> None:
+        """Emite eventos WebSocket após processar mensagem."""
+        try:
+            from src.api.v1.endpoints.websocket import get_ws_manager
+            manager = get_ws_manager()
+
+            bot_owner_id = getattr(bot, 'usuario_id', None) or str(bot.usuario_id) if hasattr(bot, 'usuario_id') else None
+            if not bot_owner_id:
+                return
+
+            # Evento: nova mensagem
+            await manager.broadcast_to_user(bot_owner_id, {
+                "event": "message.new",
+                "data": {
+                    "bot_id": str(bot.id),
+                    "bot_name": getattr(bot, 'nome', ''),
+                    "phone_number": phone_number,
+                    "message_text": message_text[:100],
+                    "push_name": push_name,
+                    "response_id": response_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            })
+
+            # Evento: atualizar métricas
+            await manager.broadcast_to_user(bot_owner_id, {
+                "event": "metrics.updated",
+                "data": {}
+            })
+
+        except Exception as e:
+            logger.debug(f"WS: erro ao emitir eventos: {e}")
 
     def _extract_message(self, event: dict) -> Optional[dict]:
         """

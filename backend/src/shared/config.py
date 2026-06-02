@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(..., description="Chave secreta para JWT (OBRIGATÓRIO)")
     ALGORITHM: str = Field(default="HS256", description="Algoritmo de assinatura JWT")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=60,
+        default=480,
         description="Tempo de expiração do access token em minutos"
     )
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(

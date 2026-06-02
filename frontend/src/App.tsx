@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { useAuthInit } from './application/hooks/useAuthInit'
+import { useWebSocket } from './application/hooks/useWebSocket'
 import HomePage from './presentation/pages/HomePage'
 import LoginPage from './presentation/pages/LoginPage'
 import RegisterPage from './presentation/pages/RegisterPage'
@@ -31,6 +33,20 @@ function PlaceholderPage({ title, description }: { title: string; description: s
 }
 
 function App() {
+  const { initialized } = useAuthInit()
+  useWebSocket()
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <BrowserRouter>
       <Routes>
