@@ -88,6 +88,20 @@ export default function BotConfigPage() {
     }
   }, [bot, botId, bots.length])
 
+  // Verificar status real da Evolution ao abrir aba WhatsApp
+  useEffect(() => {
+    if (bot?.nome && activeTab === 'whatsapp') {
+      whatsappService.getStatus(bot.nome)
+        .then(r => {
+          if (!r.connected && bot.status === 'active') {
+            // Evolution desconectada mas banco diz ativo → sincronizar
+            botsService.pause(bot.id).then(() => fetchBots()).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+  }, [bot?.nome, activeTab])
+
   // Cleanup WhatsApp polling/timer on unmount
   useEffect(() => {
     return () => {
