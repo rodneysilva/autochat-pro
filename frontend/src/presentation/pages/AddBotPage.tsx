@@ -100,63 +100,39 @@ export default function AddBotPage() {
   const startStatusPoll = (instance: string) => {
     let pollCount = 0
     const MAX_POLLS = 90
+    let botSaved = false
 
     const interval = setInterval(async () => {
       pollCount++
       try {
+        // Só confiar no status real da Evolution
         const statusResult = await whatsappService.getStatus(instance)
-        let isConnected = statusResult.connected
 
-        if (!isConnected) {
-          try {
-            const phoneResult = await whatsappService.checkPhoneStatus(instance)
-            if ((phoneResult.status as string) !== 'pairing' && (phoneResult.status as string) !== 'disconnected') {
-              isConnected = true
-            }
-          } catch {}
-        }
-
-        if (isConnected) {
+        if (statusResult.connected) {
           setStatus('connected')
           clearInterval(interval)
           setQrCode(null)
           setPairingCode(null)
 
-          try {
-            const { botsService } = await import('../../infrastructure/api/bots.service')
-            let botCreated = false
+          // Salvar bot no banco (só uma vez)
+          if (!botSaved) {
+            botSaved = true
             try {
+              const { botsService } = await import('../../infrastructure/api/bots.service')
               const botsResponse = await botsService.list()
               const existingBot = botsResponse.data.find((b: any) => b.nome === instance)
               if (existingBot) {
                 await botsService.resume(existingBot.id)
-                botCreated = true
-              }
-            } catch {}
-
-            if (!botCreated) {
-              try {
+              } else {
                 await botsService.create({ nome: instance, tipo: 'whatsapp' })
-              } catch (createErr: any) {
-                try {
-                  const botsResponse = await botsService.list()
-                  const existingBot = botsResponse.data.find((b: any) => b.nome === instance)
-                  if (existingBot) await botsService.resume(existingBot.id)
-                } catch {}
               }
+            } catch (err) {
+              console.error('Erro ao salvar bot:', err)
             }
-          } catch (err) {
-            console.error('Erro ao salvar bot:', err)
           }
 
-          setTimeout(() => navigate('/dashboard'), 1500)
+          setTimeout(() => navigate('/dashboard'), 2000)
           return
-        }
-
-        if (statusResult.status === 'disconnected' || statusResult.status === 'error') {
-          clearInterval(interval)
-          setStatus('error')
-          setError('Conexão falhou. Tente novamente.')
         }
 
         if (pollCount >= MAX_POLLS) {
@@ -171,7 +147,7 @@ export default function AddBotPage() {
           setError('Instância não encontrada. Tente novamente.')
         }
       }
-    }, 2000)
+    }, 3000)
   }
 
   const handleReset = () => {
