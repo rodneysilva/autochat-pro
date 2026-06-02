@@ -603,6 +603,7 @@ async def receive_webhook(
     event_type = event.get("event", "unknown")
     event_data = event.get("data", {})
     logger.info(f"Webhook recebido para {instance_name}: {event_type}")
+    logger.info(f"Webhook payload: {str(event)[:500]}")
 
     # Detectar connection.update -> atualizar status do bot para 'active'
     if event_type in ("connection.update", "CONNECTION_UPDATE"):

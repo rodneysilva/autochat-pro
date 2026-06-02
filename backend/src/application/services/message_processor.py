@@ -165,6 +165,14 @@ class MessageProcessor:
             if not remote_jid:
                 return None
 
+            # Ignorar mensagens de grupo (só responder conversas diretas)
+            if "@g.us" in remote_jid:
+                return None
+
+            # Ignorar se não for pessoa física
+            if "@s.whatsapp.net" not in remote_jid:
+                return None
+
             # Remover @s.whatsapp.net para obter apenas o número
             phone_number = remote_jid.split("@")[0]
 
