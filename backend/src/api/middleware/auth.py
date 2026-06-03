@@ -83,6 +83,15 @@ async def get_current_user(
 
     token = credentials.credentials
 
+    # Verificar blacklist (token invalidado por logout)
+    from src.application.services.token_blacklist import is_token_blacklisted
+    if await is_token_blacklisted(token):
+        logger.warning("Token está na blacklist (logout realizado)")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"erro": {"codigo": "TOKEN_BLACKLISTED", "mensagem": "Token inválido (logout realizado)"}}
+        )
+
     try:
         # Decodificar token
         payload = JWTService.decode_token(token)

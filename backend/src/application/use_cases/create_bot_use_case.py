@@ -1,13 +1,12 @@
 """
-Caso de uso para criação de bot.
+Caso de uso para criacao de bot.
 
-Cria um novo bot vinculado ao usuário após conexão WhatsApp.
+Cria um novo bot vinculado ao usuario apos conexao WhatsApp.
 """
-
-# uuid not needed - IDs are ObjectId strings
 
 from src.domain.entities.bot import Bot, TipoBot, StatusBot
 from src.domain.repositories.bot_repository import BotRepository
+from src.domain.repositories.user_repository import UserRepository
 from src.application.dto.bot_dto import CriarBotRequest, BotResponse
 from src.shared.exceptions import ValidationException
 from src.shared.utils.logger import get_logger
@@ -16,24 +15,31 @@ logger = get_logger(__name__)
 
 
 class CreateBotUseCase:
-    """Caso de uso para criação de bots."""
+    """Caso de uso para criacao de bots."""
 
-    def __init__(self, bot_repository: BotRepository):
+    def __init__(self, bot_repository: BotRepository, user_repository: UserRepository = None):
         self._repository = bot_repository
+        self._user_repository = user_repository
 
     async def execute(
         self,
         request: CriarBotRequest,
         usuario_id: str,
     ) -> BotResponse:
-        """Cria um novo bot para o usuário."""
-        logger.info(f"Criando bot '{request.nome}' para usuário {usuario_id}")
+        """Cria um novo bot para o usuario."""
+        logger.info(f"Criando bot '{request.nome}' para usuario {usuario_id}")
 
-        # Verificar limite de bots do plano (TODO: buscar plano do usuário)
+        # Buscar plano do usuario e verificar limite
+        max_bots = 1  # default free
+        if self._user_repository:
+            user = await self._user_repository.find_by_id(usuario_id)
+            if user:
+                max_bots = user.plano.max_bots
+
         total_bots = await self._repository.contar_por_usuario(usuario_id)
-        if total_bots >= 10:
+        if total_bots >= max_bots:
             raise ValidationException(
-                "Você atingiu o limite de bots do seu plano",
+                f"Voce atingiu o limite de {max_bots} bots do seu plano. Faca upgrade para criar mais.",
                 field="nome",
             )
 

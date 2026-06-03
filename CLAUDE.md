@@ -154,6 +154,14 @@ O handler global em `main.py` formata automaticamente quando se usa `BaseAppExce
 27. **Dependabot**: configurado para pip (backend), npm (frontend) e Docker (raiz) — scanner automático de dependências
 28. **Contacts CRUD**: verificado que já está implementado corretamente (repository faz queries reais no MongoDB)
 
+### Sessão 2026-06-03 #7 — P3 (Hardening)
+29. **Token blacklist no Redis**: logout agora invalida token via blacklist (hash SHA256 + TTL); middleware auth verifica blacklist antes de autorizar
+30. **Complexidade de senha**: registro e reset exigem mín 8 chars + 1 maiúscula + 1 minúscula + 1 número + 1 especial
+31. **Account lockout**: 5 tentativas falhas de login bloqueia conta por 15 min (Redis); reset em login bem-sucedido
+32. **Headers de segurança**: middleware HTTP com X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy, HSTS (produção)
+33. **Limite de bots do plano**: create_bot agora busca plano do usuário e verifica max_bots real (não mais hardcoded 10)
+34. **Proteção ReDoS**: regex nas automações limitado a 200 chars, padrões perigosos bloqueados, timeout de 0.5s na execução
+
 ## Progresso
 
 - ✅ FASE 1-2: Infraestrutura e autenticação

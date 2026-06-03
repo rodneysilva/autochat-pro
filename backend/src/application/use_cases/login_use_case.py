@@ -1,8 +1,8 @@
 """
-Caso de uso de login de usuário.
+Caso de uso de login de usuario.
 
-Implementa a lógica de negócio para autenticação de usuários,
-incluindo verificação de credenciais e geração de tokens.
+Implementa a logica de negocio para autenticacao de usuarios,
+incluindo verificacao de credenciais, geracao de tokens e lockout.
 """
 
 from src.domain.entities.user import Usuario, StatusUsuario
@@ -17,72 +17,75 @@ logger = get_logger(__name__)
 
 
 class LoginUseCase:
-    """Caso de uso para login de usuários."""
+    """Caso de uso para login de usuarios."""
 
     def __init__(self, user_repository: UserRepository):
-        """
-        Inicializa o caso de uso.
-
-        Args:
-            user_repository: Repositório de usuários.
-        """
         self._repository = user_repository
 
     async def execute(self, request: LoginRequest) -> LoginResponse:
         """
-        Executa o login de um usuário.
+        Executa o login de um usuario.
 
         Args:
             request: Dados do login.
 
         Returns:
-            Resposta com tokens e dados do usuário.
+            Resposta com tokens e dados do usuario.
 
         Raises:
-            ValidationException: Se os dados forem inválidos.
+            ValidationException: Se os dados forem invalidos ou conta bloqueada.
             InvalidCredentialsException: Se as credenciais estiverem incorretas.
         """
         logger.info(f"Tentativa de login: {request.email}")
 
-        # Buscar usuário por email
+        # Verificar account lockout
+        from src.application.services.token_blacklist import is_account_locked
+        locked, remaining = await is_account_locked(request.email)
+        if locked:
+            minutes = remaining // 60 + 1
+            raise ValidationException(
+                f"Conta temporariamente bloqueada. Tente novamente em {minutes} minutos.",
+                field="email",
+            )
+
+        # Buscar usuario por email
         user = await self._repository.find_by_email(request.email)
 
         if not user:
-            logger.warning(f"Usuário não encontrado: {request.email}")
+            logger.warning(f"Usuario nao encontrado: {request.email}")
+            from src.application.services.token_blacklist import record_failed_login
+            await record_failed_login(request.email)
             raise InvalidCredentialsException()
 
-        # Verificar se a conta está ativa
+        # Verificar se a conta esta ativa
         if user.status != StatusUsuario.ATIVO:
-            logger.warning(f"Conta não ativa: {user.email} - {user.status}")
+            logger.warning(f"Conta nao ativa: {request.email} - {user.status}")
             raise InvalidCredentialsException()
 
         # Verificar senha
         if not PasswordService.verify_password(request.password, user.senha_hash):
             logger.warning(f"Senha incorreta para: {request.email}")
+            from src.application.services.token_blacklist import record_failed_login
+            await record_failed_login(request.email)
             raise InvalidCredentialsException()
 
-        logger.info(f"Login bem-sucedido: {user.email}")
+        # Resetar tentativas falhas (login bem-sucedido)
+        from src.application.services.token_blacklist import reset_login_attempts
+        await reset_login_attempts(request.email)
+
+        logger.info(f"Login bem-sucedido: {request.email}")
 
         # Gerar tokens
         tokens = JWTService.create_token_pair(str(user.id), role=user.role)
 
-        # Atualizar último login
+        # Atualizar ultimo login
         user.registrar_login()
         await self._repository.update(user)
 
         return self._to_response(user, tokens)
 
     def _to_response(self, user: Usuario, tokens) -> LoginResponse:
-        """
-        Converte a entidade Usuario para LoginResponse.
-
-        Args:
-            user: Entidade do usuário.
-            tokens: Par de tokens JWT.
-
-        Returns:
-            Response DTO.
-        """
+        """Converte a entidade Usuario para LoginResponse."""
         return LoginResponse(
             message="Login realizado com sucesso",
             access_token=tokens.access_token,

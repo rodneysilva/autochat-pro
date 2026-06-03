@@ -100,8 +100,32 @@ class Condicao:
         elif self.tipo == TipoCondicao.REGEX:
             import re
             if self.operador == OperadorCondicao.REGEX_MATCH:
+                # Protecao ReDoS: limitar tamanho e complexidade do pattern
+                if len(self.valor) > 200:
+                    return False
+                # Bloquear padrões perigosos (nested quantifiers)
+                dangerous_patterns = [
+                    r"(?:\(.+\))*\+", r"(?:\[.+\])*\+", r"(?:\\+.*){3,}",
+                ]
+                for dp in dangerous_patterns:
+                    try:
+                        if re.search(dp, self.valor):
+                            return False
+                    except re.error:
+                        return False
                 try:
-                    return bool(re.search(self.valor, str(valor_campo), re.IGNORECASE))
+                    # Timeout de 0.5s para evitar ReDoS
+                    result = False
+                    def _safe_search():
+                        nonlocal result
+                        result = bool(re.search(self.valor, str(valor_campo), re.IGNORECASE))
+                    import threading
+                    t = threading.Thread(target=_safe_search)
+                    t.start()
+                    t.join(timeout=0.5)
+                    if t.is_alive():
+                        return False  # Regex demorou demais — possivel ReDoS
+                    return result
                 except re.error:
                     return False
 

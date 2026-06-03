@@ -5,6 +5,7 @@ Implementa a lógica de negócio para criação de novos usuários,
 incluindo validações e preparação dos dados.
 """
 
+import re
 from typing import Optional
 
 from src.domain.entities.user import Usuario, ConfiguracaoPlano, StatusUsuario, TipoPlano
@@ -17,16 +18,24 @@ from src.shared.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def validate_password_complexity(password: str) -> None:
+    """Valida complexidade da senha: mín 8 chars, maiúscula, minúscula, número, especial."""
+    if len(password) < 8:
+        raise ValidationException("Senha deve ter no mínimo 8 caracteres", field="password")
+    if not re.search(r"[A-Z]", password):
+        raise ValidationException("Senha deve ter ao menos uma letra maiúscula", field="password")
+    if not re.search(r"[a-z]", password):
+        raise ValidationException("Senha deve ter ao menos uma letra minúscula", field="password")
+    if not re.search(r"\d", password):
+        raise ValidationException("Senha deve ter ao menos um número", field="password")
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/~`]', password):
+        raise ValidationException("Senha deve ter ao menos um caractere especial", field="password")
+
+
 class RegisterUseCase:
     """Caso de uso para registro de usuários."""
 
     def __init__(self, user_repository: UserRepository):
-        """
-        Inicializa o caso de uso.
-
-        Args:
-            user_repository: Repositório de usuários.
-        """
         self._repository = user_repository
 
     async def execute(self, request: RegisterRequest) -> RegisterResponse:
@@ -61,6 +70,9 @@ class RegisterUseCase:
                     "Já existe uma conta com este telefone",
                     field="phone"
                 )
+
+        # Validar complexidade da senha
+        validate_password_complexity(request.password)
 
         # Hash da senha
         password_hash = PasswordService.hash_password(request.password)

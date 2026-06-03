@@ -37,7 +37,10 @@ def _get_bot_repo():
 
 
 async def get_create_bot_uc() -> CreateBotUseCase:
-    return CreateBotUseCase(_get_bot_repo())
+    from src.infrastructure.repositories.user_repository_impl import MongoUserRepository
+    db = MongoDB.get_database()
+    user_repo = MongoUserRepository(db)
+    return CreateBotUseCase(_get_bot_repo(), user_repo)
 
 
 async def get_list_bots_uc() -> ListBotsUseCase:

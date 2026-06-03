@@ -133,6 +133,10 @@ class PasswordResetUseCase:
                 logger.warning(f"Usuário não encontrado para email: {email}")
                 raise UnauthorizedError("Usuário não encontrado")
 
+            # Validar complexidade da nova senha
+            from src.application.use_cases.register_use_case import validate_password_complexity
+            validate_password_complexity(new_password)
+
             # Hash da nova senha
             password_hash = PasswordService.hash_password(new_password)
 

@@ -253,9 +253,17 @@ async def logout(
     """
     Endpoint de logout.
 
-    Invalida o token atual (implementação futura com blacklist).
+    Invalida o token atual adicionando à blacklist no Redis.
     """
-    # TODO: Implementar blacklist de tokens no Redis
+    if credentials:
+        from src.application.services.token_blacklist import blacklist_token
+        from src.shared.config import settings
+
+        token = credentials.credentials
+        # TTL = tempo de expiração restante (não precisa manter para sempre)
+        ttl = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        await blacklist_token(token, ttl)
+
     return {"message": "Logout realizado com sucesso"}
 
 
