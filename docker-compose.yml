@@ -1,8 +1,14 @@
 # ==========================================
 # AutoChat Pro - Docker Compose
 # ==========================================
-
-version: '3.8'
+# URLs:
+#   Frontend: https://autochat.rodney.website
+#   API:      https://autochat.rodney.website/api/v1 (via nginx proxy)
+#
+# Webhook Telegram:
+#   https://autochat.rodney.website/api/v1/telegram/webhook/{bot_token}
+#   (nginx proxya /api para o backend automaticamente)
+# ==========================================
 
 services:
   # ==========================================
@@ -71,7 +77,7 @@ services:
       - autochat-network
 
   # ==========================================
-  # Backend API
+  # Backend API (FastAPI)
   # ==========================================
   backend:
     build:
@@ -86,6 +92,10 @@ services:
     environment:
       - MONGODB_URL=mongodb://admin:admin123@mongodb:27017/?authSource=admin
       - REDIS_URL=redis://redis:6379/0
+      - HOST=0.0.0.0
+      - PORT=8000
+      - ENVIRONMENT=production
+      - TELEGRAM_WEBHOOK_BASE_URL=https://autochat.rodney.website
     volumes:
       - ./backend:/app
       - /app/__pycache__
@@ -122,7 +132,9 @@ services:
       retries: 5
 
   # ==========================================
-  # Frontend
+  # Frontend (React + Vite + Nginx)
+  # Nginx faz proxy de /api para o backend
+  # WebSocket /ws também é proxyado
   # ==========================================
   frontend:
     build:
@@ -162,8 +174,6 @@ services:
       - STORE_MESSAGES=true
       - STORE_CONTACTS=true
       - STORE_CHATS=true
-#      - REDIS_ENABLED=false
-#      - REDIS_URI=redis://redis:6379/0
     volumes:
       - evolution_data:/evolution/store
     networks:

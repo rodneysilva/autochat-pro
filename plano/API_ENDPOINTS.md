@@ -7,8 +7,8 @@
 ## Base URL
 
 ```
-Desenvolvimento: http://localhost:8000/api/v1
-Produção: https://api.autochat.pro/api/v1
+Desenvolvimento: http://localhost:8100/api/v1
+Produção: https://autochat.rodney.website/api/v1
 ```
 
 ---
@@ -428,39 +428,65 @@ Listar chats do WhatsApp
 
 ## 5. Telegram
 
-### POST /telegram/connect
-Conectar bot Telegram
+### POST /telegram/webhook/{bot_token}
+Webhook público — recebe updates do Telegram (SEM autenticação)
+
+**Body:** Telegram Update object (JSON)
+
+**Response:** 200 OK
+
+---
+
+### POST /telegram/validate-token
+Valida um bot token do Telegram (auth required)
 
 **Request:**
 ```json
 {
-  "botId": "...",
-  "botToken": "123456:ABC-DEF..."
+  "bot_token": "123456:ABC-DEF..."
 }
 ```
 
 **Response (200):**
 ```json
 {
-  "status": "connected",
-  "botUsername": "@meu_bot"
+  "valid": true,
+  "username": "meu_bot",
+  "first_name": "Meu Bot"
 }
 ```
 
 ---
 
-### DELETE /telegram/disconnect/{botId}
-Desconectar Telegram
+### POST /telegram/setup-webhook
+Configura webhook para um bot (auth required)
+
+**Request:**
+```json
+{
+  "bot_id": "507f1f77bcf86cd799439013"
+}
+```
+
+**Response (200):**
+```json
+{
+  "webhook_url": "https://autochat.rodney.website/api/v1/telegram/webhook/123456:ABC",
+  "status": "set"
+}
+```
 
 ---
 
-### POST /telegram/set-webhook
-Configurar webhook
+### DELETE /telegram/webhook
+Remove webhook do bot (auth required)
 
----
-
-### GET /telegram/bot-info
-Informações do bot conectado
+**Request:**
+```json
+{
+  "bot_id": "507f1f77bcf86cd799439013"
+}
+```
 
 ---
 

@@ -25,7 +25,7 @@ class LLMProvider(str, Enum):
 
 # Modelos padrão por provider
 DEFAULT_MODELS = {
-    LLMProvider.GLM: "glm-4-flash",
+    LLMProvider.GLM: "glm-4.5-air",
     LLMProvider.OPENAI: "gpt-4o-mini",
     LLMProvider.ANTHROPIC: "claude-sonnet-4-20250514",
     LLMProvider.OLLAMA: "llama3",
@@ -33,7 +33,7 @@ DEFAULT_MODELS = {
 
 # Modelos disponíveis por provider (para dropdown)
 AVAILABLE_MODELS = {
-    LLMProvider.GLM: ["glm-4-flash", "glm-4", "glm-4-plus", "glm-4-long"],
+    LLMProvider.GLM: ["glm-4.5-air", "glm-4.5", "glm-4.6", "glm-4.7", "glm-5", "glm-5-turbo", "glm-5.1"],
     LLMProvider.OPENAI: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
     LLMProvider.ANTHROPIC: [
         "claude-sonnet-4-20250514",

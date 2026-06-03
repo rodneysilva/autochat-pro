@@ -126,6 +126,14 @@ class Settings(BaseSettings):
     OLLAMA_URL: str = Field(default="http://localhost:11434", description="URL do Ollama")
 
     # ========================================
+    # Telegram
+    # ========================================
+    TELEGRAM_WEBHOOK_BASE_URL: str = Field(
+        default="",
+        description="URL base para webhooks do Telegram (ex: https://autochat.rodney.website)"
+    )
+
+    # ========================================
     # WhatsApp
     # ========================================
     WHATSAPP_API_URL: str = Field(default="http://evolution-api:8080", description="URL da API do WhatsApp")

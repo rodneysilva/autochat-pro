@@ -72,6 +72,12 @@ class UpdateBotUseCase:
         if request.llm_max_context_messages is not None:
             bot.llm_config.max_context_messages = request.llm_max_context_messages
 
+        # Telegram Config
+        if request.telegram_bot_token is not None:
+            bot.telegram_config.bot_token = request.telegram_bot_token
+        if request.telegram_bot_username is not None:
+            bot.telegram_config.bot_username = request.telegram_bot_username
+
         bot.atualizado_em = datetime.utcnow()
 
         updated_bot = await self._repository.salvar(bot)

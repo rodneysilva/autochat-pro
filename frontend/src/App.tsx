@@ -15,6 +15,8 @@ import ConversationsPage from './presentation/pages/ConversationsPage'
 import ContactsPage from './presentation/pages/ContactsPage'
 import PricingPage from './presentation/pages/PricingPage'
 import AutomationsPage from './presentation/pages/AutomationsPage'
+import ChatPage from './presentation/pages/ChatPage'
+import SettingsPage from './presentation/pages/SettingsPage'
 import MainLayout from './presentation/layouts/MainLayout'
 import { ProtectedRoute } from './presentation/components/ProtectedRoute'
 
@@ -134,6 +136,17 @@ function App() {
         </Route>
 
         <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<ChatPage />} />
+        </Route>
+
+        <Route
           path="/pricing"
           element={
             <ProtectedRoute>
@@ -163,7 +176,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<PlaceholderPage title="Configurações" description="Gerencie suas configurações de conta, perfil e preferências. Esta funcionalidade estará disponível em breve." />} />
+          <Route index element={<SettingsPage />} />
         </Route>
 
         {/* 404 */}

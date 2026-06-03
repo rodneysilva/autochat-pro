@@ -1,25 +1,32 @@
 /**
  * Hook de inicialização de autenticação.
  *
- * Verifica a validade do token ao carregar a aplicação.
- * Se o token expirou, tenta refresh. Se refresh falhar, faz logout.
+ * AGUARDA o Zustand persist hydratar do localStorage ANTES de decidir
+ * se o usuário está autenticado. Sem isso, o primeiro render vê
+ * token=null (estado inicial) e redireciona pro login mesmo tendo
+ * token salvo no localStorage.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '../stores'
 import { authService } from '../../infrastructure/api/auth.service'
 
 export function useAuthInit(): { initialized: boolean } {
   const [initialized, setInitialized] = useState(false)
-  const token = useAuthStore((state) => state.token)
-  const user = useAuthStore((state) => state.user)
   const setAuth = useAuthStore((state) => state.setAuth)
   const logout = useAuthStore((state) => state.logout)
+  const hasRun = useRef(false)
 
   useEffect(() => {
+    if (hasRun.current) return
+    hasRun.current = true
+
     let cancelled = false
 
     async function verifyAuth() {
+      // Ler estado JÁ hidratado do store (não do render)
+      const { token, user } = useAuthStore.getState()
+
       // Sem token = não autenticado, pronto
       if (!token) {
         setInitialized(true)
@@ -27,12 +34,9 @@ export function useAuthInit(): { initialized: boolean } {
       }
 
       try {
-        // Tentar chamar /auth/me para validar o token
         const me = await authService.getMe()
-
         if (cancelled) return
 
-        // Token válido — atualizar dados do user
         if (user && me) {
           setAuth(
             {
@@ -40,17 +44,15 @@ export function useAuthInit(): { initialized: boolean } {
               email: me.email,
               nome: me.nome || me.name || user.nome,
               avatar: me.avatar || user.avatar,
-              plano: user.plano, // manter plano do store
+              plano: user.plano,
             },
             token,
           )
         }
-
         setInitialized(true)
       } catch {
         if (cancelled) return
 
-        // Token expirado ou inválido — tentar refresh
         const refreshToken = localStorage.getItem('refresh_token')
         if (!refreshToken) {
           logout()
@@ -62,29 +64,34 @@ export function useAuthInit(): { initialized: boolean } {
           const response = await authService.refreshToken(refreshToken)
           if (cancelled) return
 
-          // Refresh OK — atualizar store
-          if (user) {
-            setAuth(user, response.access_token)
+          const currentUser = useAuthStore.getState().user
+          if (currentUser) {
+            setAuth(currentUser, response.access_token)
           }
           localStorage.setItem('refresh_token', response.refresh_token)
-
           setInitialized(true)
         } catch {
           if (cancelled) return
-
-          // Refresh falhou — logout
           logout()
           setInitialized(true)
         }
       }
     }
 
-    verifyAuth()
-
-    return () => {
-      cancelled = true
+    function run() {
+      if (useAuthStore.persist.hasHydrated()) {
+        verifyAuth()
+      } else {
+        // Aguardar hydration terminar
+        const unsub = useAuthStore.persist.onFinishHydration(() => {
+          unsub()
+          verifyAuth()
+        })
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    run()
+    return () => { cancelled = true }
   }, [])
 
   return { initialized }

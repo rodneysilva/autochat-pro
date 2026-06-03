@@ -480,6 +480,186 @@ class MessageProcessor:
             logger.error(f"Erro ao verificar horário: {e}")
             return True
 
+    async def process_telegram_message(self, bot_token: str, update_data: dict) -> Optional[str]:
+        """
+        Processa uma mensagem recebida via webhook do Telegram.
+
+        Args:
+            bot_token: Token do bot Telegram.
+            update_data: Payload do update do Telegram.
+
+        Returns:
+            ID da resposta enviada, ou None.
+        """
+        try:
+            message = update_data.get("message") or update_data.get("edited_message")
+            if not message:
+                return None
+
+            chat = message.get("chat", {})
+            chat_id = str(chat.get("id", ""))
+            message_text = message.get("text", "")
+
+            if not message_text:
+                logger.debug(f"Mensagem Telegram sem texto, ignorando (chat_id={chat_id})")
+                return None
+
+            # Ignorar mensagens do próprio bot
+            from_user = message.get("from", {})
+            if from_user.get("is_bot", False):
+                return None
+
+            sender_name = from_user.get("first_name", "Cliente") or "Cliente"
+            message_id = message.get("message_id", "")
+
+            logger.info(
+                f"Mensagem Telegram recebida: chat_id={chat_id} | de: {sender_name} | "
+                f"texto: {message_text[:50]}..."
+            )
+
+            # Buscar bot pelo token
+            bot_doc = None
+            from src.infrastructure.database.mongodb import MongoDB
+            db = MongoDB.get_database()
+            bot_doc = await db.bots.find_one({"telegram_config.bot_token": bot_token})
+            if not bot_doc:
+                logger.warning(f"Bot não encontrado para token Telegram=...{bot_token[-6:]}")
+                return None
+
+            # Reconstruir entidade Bot a partir do documento
+            from src.infrastructure.repositories.bot_repository_impl import MongoBotRepository
+            bot_repo_instance = type(self._bot_repo)(db)
+            bot = await bot_repo_instance.buscar_por_id(str(bot_doc["_id"]))
+            if not bot:
+                return None
+
+            if bot.status.value != "active":
+                logger.info(f"Bot Telegram {bot.nome} está inativo, ignorando mensagem")
+                return None
+
+            # Verificar horário de funcionamento
+            if bot.working_hours.ativado:
+                if not self._is_within_working_hours(bot.working_hours):
+                    if bot.working_hours.mensagem_fora_horario:
+                        msg = bot.working_hours.mensagem_fora_horario.replace("{nome}", sender_name)
+                        await self._send_telegram_response(bot_token, chat_id, msg)
+                        return "off_hours"
+                    return None
+
+            # Automações
+            automation_response = await self._try_telegram_automation_rules(
+                bot, message_text, sender_name, chat_id, bot_token
+            )
+            if automation_response is not None:
+                return automation_response
+
+            # LLM ou mensagem padrão
+            if bot.llm_config.ativado:
+                response_text = await self._generate_llm_response(
+                    bot, message_text, sender_name, chat_id
+                )
+            elif bot.mensagem_resposta_padrao:
+                response_text = bot.mensagem_resposta_padrao.replace("{nome}", sender_name)
+            else:
+                logger.info(f"Sem resposta configurada para bot Telegram {bot.nome}")
+                return None
+
+            if not response_text:
+                return None
+
+            await self._send_telegram_response(bot_token, chat_id, response_text)
+            await self._update_bot_stats(bot)
+
+            # WS events
+            await self._emit_ws_events(bot, chat_id, message_text, "sent", sender_name)
+
+            logger.info(f"Resposta Telegram enviada para chat_id={chat_id} via bot {bot.nome}")
+            return "sent"
+
+        except Exception as e:
+            logger.error(f"Erro ao processar mensagem Telegram: {e}", exc_info=True)
+            return None
+
+    async def _send_telegram_response(self, bot_token: str, chat_id: str, text: str) -> None:
+        """Envia resposta via TelegramService."""
+        from src.infrastructure.external_services.telegram import get_telegram_service
+        telegram_svc = get_telegram_service()
+        # Telegram markdown pode quebrar com caracteres especiais; usar HTML seguro
+        safe_text = text.replace("<", "&lt;").replace(">", "&gt;")
+        safe_text = safe_text.replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
+        safe_text = safe_text.replace("&lt;i&gt;", "<i>").replace("&lt;/i&gt;", "</i>")
+        safe_text = safe_text.replace("&lt;code&gt;", "<code>").replace("&lt;/code&gt;", "</code>")
+        await telegram_svc.send_message(bot_token, chat_id, safe_text, parse_mode="HTML")
+
+    async def _try_telegram_automation_rules(
+        self, bot, message_text: str, sender_name: str,
+        chat_id: str, bot_token: str,
+    ) -> Optional[str]:
+        """Avalia automações para mensagens Telegram."""
+        if not self._automation_repo:
+            return None
+
+        try:
+            from src.domain.entities.automation_rule import TipoAcao
+
+            rules = await self._automation_repo.buscar_ativas_por_bot(bot.id)
+            if not rules:
+                return None
+
+            rules.sort(key=lambda r: r.prioridade, reverse=True)
+            contexto = {
+                "message.content": message_text,
+                "customer.name": sender_name,
+                "message.type": "text",
+            }
+            conv_id = _uuid4()
+
+            for rule in rules:
+                if not rule.pode_executar(conv_id):
+                    continue
+                if not rule.avaliar_condicoes(contexto):
+                    continue
+
+                logger.info(f"Regra de automação '{rule.nome}' acionada para Telegram chat_id={chat_id}")
+                rule.executar(conv_id)
+
+                response_id = None
+                for delay, acao in rule.obter_acoes_com_delay():
+                    if delay > 0:
+                        await asyncio.sleep(delay)
+
+                    if acao.tipo == TipoAcao.RESPONDER:
+                        msg = acao.conteudo.replace("{nome}", sender_name)
+                        await self._send_telegram_response(bot_token, chat_id, msg)
+                        response_id = "sent"
+
+                    elif acao.tipo == TipoAcao.USAR_LLM:
+                        response_text = await self._generate_llm_response(
+                            bot, message_text, sender_name, chat_id
+                        )
+                        if response_text:
+                            await self._send_telegram_response(bot_token, chat_id, response_text)
+                            response_id = "sent"
+
+                    elif acao.tipo == TipoAcao.FECHAR_CONVERSA:
+                        logger.info(f"Ação close para Telegram chat_id={chat_id}")
+
+                    elif acao.tipo == TipoAcao.ATRIBUIR_HUMANO:
+                        logger.info(f"Ação assign_human para Telegram chat_id={chat_id}")
+
+                    elif acao.tipo == TipoAcao.ADICIONAR_TAG:
+                        logger.info(f"Ação tag para Telegram chat_id={chat_id}: {acao.conteudo}")
+
+                await self._update_bot_stats(bot)
+                await self._emit_ws_events(bot, chat_id, message_text, response_id, sender_name)
+                return response_id
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Erro ao avaliar automações Telegram: {e}", exc_info=True)
+            return None
+
     async def _update_bot_stats(self, bot) -> None:
         """Atualiza estatísticas do bot."""
         try:

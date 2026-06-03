@@ -54,6 +54,10 @@ class AtualizarBotRequest(BaseModel):
     llm_system_prompt: Optional[str] = None
     llm_max_context_messages: Optional[int] = None
 
+    # Telegram Config
+    telegram_bot_token: Optional[str] = None
+    telegram_bot_username: Optional[str] = None
+
 
 class ConfigurarWhatsAppRequest(BaseModel):
     """DTO para configuração de WhatsApp."""
@@ -135,6 +139,7 @@ class WhatsAppConfigResponse(BaseModel):
 
 
 class TelegramConfigResponse(BaseModel):
+    bot_token: Optional[str] = None
     bot_username: Optional[str]
     webhook_url: Optional[str]
 
@@ -255,6 +260,7 @@ def bot_to_response(bot) -> BotResponse:
             profile_picture_url=bot.whatsapp_config.profile_picture_url,
         ),
         telegram_config=TelegramConfigResponse(
+            bot_token=bot.telegram_config.bot_token,
             bot_username=bot.telegram_config.bot_username,
             webhook_url=bot.telegram_config.webhook_url,
         ),

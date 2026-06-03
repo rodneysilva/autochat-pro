@@ -251,7 +251,7 @@ def criar_aplicacao() -> FastAPI:
         return {"status": "healthy"}
 
     # Registro de rotas da API v1
-    from src.api.v1.endpoints import auth_router, whatsapp_router, bots_router, dashboard_router, automations_router, chat_router
+    from src.api.v1.endpoints import auth_router, whatsapp_router, bots_router, dashboard_router, automations_router, chat_router, telegram_router
 
     app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
     app.include_router(whatsapp_router, prefix=settings.API_V1_PREFIX)
@@ -259,6 +259,7 @@ def criar_aplicacao() -> FastAPI:
     app.include_router(dashboard_router, prefix=settings.API_V1_PREFIX)
     app.include_router(automations_router, prefix=settings.API_V1_PREFIX)
     app.include_router(chat_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(telegram_router, prefix=settings.API_V1_PREFIX)
 
     return app
 

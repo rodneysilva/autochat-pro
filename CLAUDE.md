@@ -1,6 +1,6 @@
 # AutoChat Pro
 
-Plataforma de automação de atendimento WhatsApp com IA.
+Plataforma de automação de atendimento WhatsApp e Telegram com IA.
 
 ## Stack
 
@@ -10,7 +10,8 @@ Plataforma de automação de atendimento WhatsApp com IA.
 | Frontend | React + TypeScript + Vite + Tailwind CSS |
 | IA | GLM (LLM API) |
 | WhatsApp | Evolution API v2 (Baileys) |
-| Infra | Docker Compose |
+| Telegram | Telegram Bot API (webhook direto via httpx) |
+| Infra | Docker Compose + Cloudflare Tunnel |
 
 ## Portas
 
@@ -60,14 +61,14 @@ docker compose up -d
 | Rota | Página |
 |------|-------|
 | /dashboard | Dashboard com stats e bots |
-| /add-bot | Conectar WhatsApp (QR/phone) |
+| /add-bot | Conectar WhatsApp (QR/phone) ou Telegram (token) |
 | /bots | Listar e gerenciar bots |
 | /bots/:botId/config | Configurar bot (mensagens, horário, IA) |
 | /conversations | Lista de conversas |
 | /contacts | Lista de contatos/leads |
 | /pricing | Planos e preços |
 | /automations | (em breve) |
-| /settings | (em breve) |
+| /settings | Configurações (Perfil, Segurança, Notificações) |
 
 ## Arquitetura (DDD)
 
@@ -142,12 +143,18 @@ O handler global em `main.py` formata automaticamente quando se usa `BaseAppExce
 - ✅ FASE 3: Modelos de dados (DDD)
 - ✅ FASE 4: Integração WhatsApp via Evolution API (QR + phone pairing)
 - ✅ FASE 4.5: Persistência de bots e fluxo pós-conexão
-- ✅ FASE 5: Integração IA (GLM) — GLMService, MessageProcessor, webhook receiver
-- ✅ FASE 6: Conversas e métricas — Dashboard metrics, ConversationsPage
-- ✅ FASE 7: Contatos/Leads — Entidade Contato, repositório, endpoints, ContactsPage
-- ✅ FASE 8: Planos e Billing — Free/Basic/Pro, upgrade, PricingPage
+- ✅ FASE 5: Integração Telegram — TelegramService, webhook, MessageProcessor adaptado
+- ✅ FASE 6: Integração IA (GLM) — GLMService, MessageProcessor, webhook receiver
+- ✅ FASE 7: Conversas e métricas — Dashboard metrics, ConversationsPage
+- ✅ FASE 8: Contatos/Leads — Entidade Contato, repositório, endpoints, ContactsPage
+- ✅ FASE 9: Planos e Billing — Free/Basic/Pro, upgrade, PricingPage
+- ✅ FASE 10: Automações — CRUD regras, MessageProcessor integrado
+- ✅ FASE 11: LLM Avançado — Multi-provider, streaming SSE, contexto conversa
+- ✅ FASE 12: Settings Page — Perfil, Segurança, Notificações
 
 ## Fluxo completo implementado
+
+### WhatsApp
 ```
 Usuário conecta WhatsApp → Salva bot no MongoDB (user_id) → Redireciona Dashboard
                                                                 ↓
@@ -164,6 +171,23 @@ Usuário conecta WhatsApp → Salva bot no MongoDB (user_id) → Redireciona Das
                                                     Gera resposta com GLM (ou msg padrão)
                                                                 ↓
                                                     Envia resposta automática via WhatsApp
+```
+
+### Telegram
+```
+Usuário insere token do @BotFather → Valida (getMe) → Salva bot no MongoDB
+                                                                ↓
+                                        Setup webhook no Telegram → autochat.rodney.website/api/v1/telegram/webhook/{token}
+                                                                ↓
+                                                    Dashboard mostra bot conectado
+                                                                ↓
+                                                    Mensagens chegam via webhook (Telegram Bot API)
+                                                                ↓
+                                                    MessageProcessor busca config pelo bot_token
+                                                                ↓
+                                                    Verifica horário → Automações → LLM GLM
+                                                                ↓
+                                                    Envia resposta automática via Telegram API
 ```
 
 ## Arquivos criados nesta sessão
@@ -194,6 +218,17 @@ Usuário conecta WhatsApp → Salva bot no MongoDB (user_id) → Redireciona Das
 - `backend/src/application/services/message_processor.py` — Integrado: avalia regras antes de chamar LLM
 - `frontend/src/presentation/pages/AutomationsPage.tsx` — CRUD de regras com condition/action builder
 - `frontend/src/infrastructure/api/automations.service.ts` — API client
+
+### FASE 5 — Telegram
+- `backend/src/infrastructure/external_services/telegram/__init__.py` — Singleton factory
+- `backend/src/infrastructure/external_services/telegram/telegram_service.py` — Webhook, send, getMe (httpx)
+- `backend/src/api/v1/endpoints/telegram.py` — Webhook receiver, validate-token, setup/delete webhook
+- `backend/src/application/services/message_processor.py` — `process_telegram_message()` com LLM + automações
+- `frontend/src/presentation/pages/AddBotPage.tsx` — Selector WhatsApp | Telegram, token input, validação
+- `frontend/src/infrastructure/api/telegram.service.ts` — validateToken, setupWebhook, deleteWebhook
+
+### FASE 12 — Settings
+- `frontend/src/presentation/pages/SettingsPage.tsx` — Perfil, Segurança, Notificações
 
 ### FASE 10 — LLM Avançado
 - `backend/src/infrastructure/external_services/llm/llm_service.py` — Multi-provider (GLM, OpenAI, Anthropic, Ollama)

@@ -10,22 +10,58 @@
 |-------------|-------|
 | **Nome** | AutoChat Pro |
 | **Tech Stack** | FastAPI, React, Vite, Tailwind, MongoDB, Redis |
-| **LLM** | GLM (on-premise) |
+| **LLM** | GLM-4.7-Flash (Z.AI, gratuito) |
+| **WhatsApp** | Evolution API v2 |
+| **Telegram** | Telegram Bot API (webhook direto) |
+| **Deploy** | Docker Compose + Cloudflare Tunnel |
 | **Público** | Pequenos negócios |
-| **Prazo Estimado** | 10-12 semanas (1 dev) / 6-8 semanas (2 devs) |
-| **Progresso Atual** | 60% |
+| **Progresso Atual** | 70% |
+
+---
+
+## 🌐 Arquitetura de Deploy
+
+```
+Internet
+  │
+  ▼
+Cloudflare Tunnel (autochat.rodney.website)
+  │
+  ├── Frontend (nginx, :5174)
+  │     ├── / → React SPA
+  │     ├── /api/* → proxy backend
+  │     └── /ws → proxy WebSocket
+  │
+  └── Docker Compose
+        ├── backend (FastAPI, :8100)
+        │     ├── /api/v1/telegram/webhook/{token}
+        │     └── LLM GLM integration
+        ├── mongodb (:27018)
+        ├── redis (:6380)
+        ├── evolution-api (WhatsApp, :8090)
+        ├── evolution-db (PostgreSQL)
+        └── postfix (SMTP)
+```
+
+### URLs
+| Serviço | URL |
+|---------|-----|
+| Frontend | https://autochat.rodney.website |
+| API | https://autochat.rodney.website/api/v1 |
+| Webhook Telegram | https://autochat.rodney.website/api/v1/telegram/webhook/{token} |
+| Evolution API | http://localhost:8090 |
 
 ---
 
 ## ✅ Progresso por Fase
 
 - [x] **FASE 1: Fundação** - 100% completa
-- [x] **FASE 2: Autenticação** - 100% completa ✅
-- [x] **FASE 3: Modelos de Dados** - 100% completa ✅
-- [x] **FASE 4: Integração WhatsApp** - 100% completa ✅
-- [ ] **FASE 5: Integração Telegram** - 0% completa
+- [x] **FASE 2: Autenticação** - 100% completa
+- [x] **FASE 3: Modelos de Dados** - 100% completa
+- [x] **FASE 4: Integração WhatsApp** - 100% completa
+- [x] **FASE 5: Integração Telegram** - 90% completa ✅ (falta deploy e testes E2E)
 - [ ] **FASE 6: Automações** - 10% completa
-- [ ] **FASE 7: Integração LLM GLM** - 0% completa
+- [x] **FASE 7: Integração LLM GLM** - 80% completa ✅
 - [ ] **FASE 8: Chat Tempo Real** - 0% completa
 - [ ] **FASE 9: Planos e Pagamentos** - 0% completa
 - [ ] **FASE 10: Onboarding e Admin** - 0% completa
@@ -37,11 +73,13 @@
 Funcionalidades essenciais para o lançamento:
 
 - [x] Autenticação com confirmação por email
-- [x] Cadastro de bots WhatsApp
-- [ ] Respostas automáticas configuráveis
-- [ ] Integração com LLM GLM para atendimento
+- [x] Cadastro de bots WhatsApp e Telegram
+- [x] Respostas automáticas configuráveis (automações)
+- [x] Integração com LLM GLM para atendimento inteligente
 - [x] Dashboard básico com estatísticas
-- [ ] Histórico de conversas
+- [x] Página de configurações do usuário (Perfil, Segurança, Notificações)
+- [ ] Histórico de conversas (E2E)
+- [ ] Chat em tempo real via WebSocket
 
 ---
 
@@ -76,9 +114,10 @@ Funcionalidades essenciais para o lançamento:
 #### DevOps ✅
 - [x] Docker Compose completo
 - [x] Setup de variáveis ambiente
-- [x] Dockerfiles (backend + frontend)
+- [x] Dockerfiles (backend + frontend + postfix)
 - [x] Repositório Git + .gitignore
 - [x] Nginx com proxy reverso para API
+- [x] Cloudflare Tunnel (autochat.rodney.website)
 
 ---
 
@@ -86,7 +125,7 @@ Funcionalidades essenciais para o lançamento:
 **Objetivo:** Sistema de usuários funcional
 
 #### Backend ✅
-- [x] Modelo User no MongoDB (entidade criada)
+- [x] Modelo User no MongoDB
 - [x] Repositório MongoDB implementado
 - [x] Registro de usuário
 - [x] Login JWT (access + refresh tokens)
@@ -95,16 +134,16 @@ Funcionalidades essenciais para o lançamento:
 - [x] Recuperação de senha
 - [x] Middleware de autenticação
 - [x] Refresh token
-- [x] Password hashing com bcrypt nativo
+- [x] Password hashing com argon2
 
 #### Frontend ✅
-- [x] Página de Login (com dark mode e toggle de senha)
+- [x] Página de Login (dark mode, toggle senha)
 - [x] Página de Cadastro
-- [x] Confirmação de email
-- [x] Confirmação de telefone
+- [x] Confirmação de email/telefone
 - [x] Recuperação de senha
 - [x] Protected routes
 - [x] Store de autenticação (Zustand + persist)
+- [x] Página de Configurações (Perfil, Segurança, Notificações)
 
 ---
 
@@ -121,7 +160,7 @@ Funcionalidades essenciais para o lançamento:
 - [x] Seeds de dados iniciais (planos + usuário teste)
 - [x] Repositórios MongoDB implementados
 
-#### Frontend
+#### Frontend ✅
 - [x] Dashboard home
 - [x] Navigation completa
 - [x] Sidebar de navegação
@@ -150,21 +189,30 @@ Funcionalidades essenciais para o lançamento:
 
 ---
 
-### FASE 5: Integração Telegram (Semana 7)
+### FASE 5: Integração Telegram (Semana 7) ✅ 90%
 **Objetivo:** Bots de Telegram funcionando
 
-#### Backend
-- [ ] Setup Telegram Bot API
-- [ ] Webhook Telegram
-- [ ] Recebimento de mensagens
-- [ ] Envio de mensagens
-- [ ] Comandos básicos (/start, /help)
-- [ ] Inline buttons
+#### Backend ✅
+- [x] TelegramService (httpx, sem dependência python-telegram-bot)
+- [x] Webhook endpoint `/api/v1/telegram/webhook/{bot_token}`
+- [x] Recebimento de mensagens via webhook
+- [x] Envio de mensagens via Telegram Bot API
+- [x] Validação de bot token (getMe)
+- [x] Setup/delete webhook endpoints
+- [x] MessageProcessor adaptado para Telegram (LLM + automações)
+- [ ] Testes E2E com bot real
 
-#### Frontend
-- [ ] Página "Adicionar Bot Telegram"
-- [ ] Configuração de token
-- [ ] Teste de envio
+#### Frontend ✅
+- [x] AddBotPage com selector WhatsApp | Telegram
+- [x] Input de Bot Token com validação
+- [x] Auto-criação de bot Telegram + webhook setup
+- [x] Telegram API service
+
+#### Nota Técnica
+- O Telegram **não é suportado pela Evolution API** (focada em WhatsApp)
+- Integração feita diretamente com Telegram Bot API via webhook
+- Bot token armazenado no MongoDB (`telegram_config.bot_token`)
+- Webhook URL: `https://autochat.rodney.website/api/v1/telegram/webhook/{token}`
 
 ---
 
@@ -173,9 +221,10 @@ Funcionalidades essenciais para o lançamento:
 
 #### Backend
 - [x] Modelo AutomationRule
-- [ ] Keyword matching
-- [ ] Respostas dinâmicas
-- [ ] Delay configurável
+- [x] Avaliação de condições no MessageProcessor (WhatsApp + Telegram)
+- [ ] Keyword matching avançado
+- [ ] Respostas dinâmicas com variáveis
+- [ ] Delay configurável na UI
 - [ ] Fallback message
 
 #### Frontend
@@ -185,20 +234,25 @@ Funcionalidades essenciais para o lançamento:
 
 ---
 
-### FASE 7: Integração LLM GLM (Semana 9)
+### FASE 7: Integração LLM GLM (Semana 9) ✅ 80%
 **Objetivo:** Atendimento inteligente
 
-#### Backend
-- [ ] Cliente GLM (OpenAI-compatible API)
-- [ ] Prompt engineering base
-- [ ] Contexto de conversa
-- [ ] Fluxo de escolha de pedidos
-- [ ] Streaming de respostas
-- [ ] Fallback para LLM
+#### Backend ✅
+- [x] GLMService (OpenAI-compatible, httpx)
+- [x] LLMService unificado (multi-provider: glm, openai, anthropic, ollama)
+- [x] Prompt engineering base por bot
+- [x] Contexto de conversa (ConversationContext)
+- [x] Chat streaming via SSE
+- [x] Chat completion (non-streaming)
+- [x] Fallback para LLM legado
+- [x] Modelo padrão: glm-4.7-flash (gratuito, 200K contexto)
+- [ ] Fluxo de escolha de pedidos (catálogo)
+- [ ] Fallback robusto para LLM offline
 
-#### Frontend
-- [ ] Configuração de prompt do bot
-- [ ] Preview de chat com LLM
+#### Frontend ✅
+- [x] Configuração de prompt do bot (BotConfigPage)
+- [x] Chat streaming endpoint
+- [ ] Preview de chat com LLM E2E
 - [ ] Configuração de catálogo/produtos
 
 ---
@@ -207,9 +261,9 @@ Funcionalidades essenciais para o lançamento:
 **Objetivo:** Dashboard de conversas
 
 #### Backend
-- [ ] WebSocket (FastAPI WebSockets)
-- [ ] Eventos de nova mensagem
-- [ ] Histórico de conversas
+- [x] WebSocket (FastAPI WebSockets)
+- [x] Eventos de nova mensagem
+- [ ] Histórico de conversas persistido
 - [ ] Marcação de lida
 - [ ] Transferência para humano
 
@@ -233,7 +287,7 @@ Funcionalidades essenciais para o lançamento:
 - [ ] Trial period
 
 #### Frontend
-- [x] Página de planos (já no HomePage)
+- [x] Página de planos (HomePage)
 - [ ] Checkout
 - [ ] Gestão de assinatura
 - [ ] Histórico de pagamentos
@@ -279,12 +333,13 @@ Funcionalidades essenciais para o lançamento:
 |------------|------------|--------|
 | API | FastAPI | ✅ |
 | Database | Motor (async MongoDB) | ✅ |
-| Auth | JWT + bcrypt | ✅ |
-| WhatsApp | Evolution API | ✅ |
-| Telegram | python-telegram-bot | ⏳ |
+| Auth | JWT + argon2 | ✅ |
+| WhatsApp | Evolution API v2 | ✅ |
+| Telegram | Telegram Bot API (httpx) | ✅ |
 | Queue | Redis + ARQ | ✅ Config |
 | Validation | Pydantic v2 | ✅ |
-| LLM | GLM (OpenAI-compatible) | ⏳ |
+| LLM | GLM-4.7-Flash (Z.AI) | ✅ |
+| Email | Postfix SMTP | ✅ |
 
 ### Frontend
 | Componente | Tecnologia | Status |
@@ -295,6 +350,14 @@ Funcionalidades essenciais para o lançamento:
 | State | Zustand + persist | ✅ |
 | Router | React Router v6 | ✅ |
 | HTTP | Axios + nginx proxy | ✅ |
+
+### Infraestrutura
+| Componente | Tecnologia | Status |
+|------------|------------|--------|
+| Containerização | Docker Compose | ✅ |
+| Tunnel | Cloudflare Tunnel | ✅ |
+| Domínio | autochat.rodney.website | ✅ |
+| Reverse Proxy | Nginx (no container frontend) | ✅ |
 
 ---
 
@@ -309,35 +372,35 @@ Funcionalidades essenciais para o lançamento:
 
 ---
 
-## 🐛 Bugs Corrigidos (Sessão 01/06/2026)
+## 🐛 Bugs Corrigidos
 
+### Sessão 01/06/2026
 1. **bcrypt incompatível** — passlib 1.7.4 não suporta bcrypt 5.x
-2. **Formato de erro inconsistente** — Padronizado para PT `{erro: {codigo, mensagem}}`
+2. **Formato de erro inconsistente** — Padronizado para PT
 3. **timedelta não importado** — Entidade Usuario
 4. **CORS** — Liberado para qualquer origem em desenvolvimento
-5. **TypeScript errors** — Corrigidos todos (AddBotPage, ConfirmPhonePage, etc.)
+5. **TypeScript errors** — Corrigidos todos
 6. **Seed de teste** — Adicionado usuário admin automaticamente
 7. **Frontend API URL** — Mudado para URL relativa via nginx proxy
+
+### Sessão 03/06/2026
+8. **LLM modelo inválido** — `glm-4` não existe mais na Z.AI; atualizado para `glm-4.7-flash` (gratuito)
+9. **Telegram integração** — Criado TelegramService, webhook endpoint, MessageProcessor adaptado
+10. **AddBotPage** — Adicionado suporte a Telegram com selector de tipo
+11. **SettingsPage** — Implementada com abas Perfil, Segurança, Notificações
 
 ---
 
 ## 🚀 Próximos Passos Prioritários
 
-1. **Integração Telegram** (FASE 5)
-2. **Sistema de Automações** (FASE 6)
-3. **Integração LLM GLM** (FASE 7)
-4. **Chat em Tempo Real** (FASE 8)
+1. **Deploy Docker** — `docker compose up -d` e testes E2E
+2. **Teste Telegram E2E** — Criar bot no @BotFather, integrar, enviar mensagens
+3. **Sistema de Automações** (FASE 6) — Editor visual de regras
+4. **Chat em Tempo Real** (FASE 8) — WebSocket + UI de conversas
+5. **Planos e Pagamentos** (FASE 9) — Stripe/PagSeguro
 
 ---
 
 ## 📱 Checklist Interativo
 
 Acesse o checklist interativo em [`checklist.html`](./checklist.html) para acompanhar o progresso em tempo real.
-
-**Funcionalidades:**
-- ✅ Design mobile-first responsivo
-- ✅ Sidebar colapsável em mobile
-- ✅ Filtros rápidos (todos/pendentes/concluídos)
-- ✅ Salva progresso automaticamente
-- ✅ Scroll suave entre seções
-- ✅ Footer com estatísticas (mobile)

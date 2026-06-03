@@ -93,6 +93,7 @@ export interface WhatsAppConfig {
 }
 
 export interface TelegramConfig {
+  bot_token: string | null
   bot_username: string | null
   webhook_url: string | null
 }
