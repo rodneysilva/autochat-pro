@@ -50,9 +50,10 @@ export function useAuth() {
             plano: {
               tipo: loginResponse.user.plano_tipo as 'free' | 'basic' | 'pro',
               maxBots: loginResponse.user.plano_max_bots,
-              maxMessagesPerMonth: 1000, // TODO: obter da API
+              maxMessagesPerMonth: 1000,
               expiresAt: null,
             },
+            role: (loginResponse.user.role as 'admin' | 'user') || 'user',
           },
           loginResponse.access_token
         )
@@ -96,6 +97,7 @@ export function useAuth() {
               maxMessagesPerMonth: 1000,
               expiresAt: null,
             },
+            role: (response.user.role as 'admin' | 'user') || 'user',
           },
           response.access_token
         )

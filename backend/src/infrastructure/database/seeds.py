@@ -179,6 +179,7 @@ async def seed_test_user(database: AsyncIOMotorDatabase) -> None:
             "trial_used": False,
         },
         "status": "active",
+        "role": "admin",
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
         "last_login": None,

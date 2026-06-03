@@ -125,6 +125,7 @@ class RegisterUseCase:
                 telefone_confirmado=user.telefone_confirmado,
                 plano_tipo=user.plano.tipo.value if hasattr(user.plano.tipo, 'value') else user.plano.tipo,
                 plano_max_bots=user.plano.max_bots,
+                role=getattr(user, 'role', 'user'),
                 criado_em=user.criado_em.isoformat() if user.criado_em else "",
             )
         )

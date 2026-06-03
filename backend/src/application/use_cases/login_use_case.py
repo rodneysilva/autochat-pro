@@ -64,7 +64,7 @@ class LoginUseCase:
         logger.info(f"Login bem-sucedido: {user.email}")
 
         # Gerar tokens
-        tokens = JWTService.create_token_pair(str(user.id))
+        tokens = JWTService.create_token_pair(str(user.id), role=user.role)
 
         # Atualizar último login
         user.registrar_login()
@@ -99,6 +99,7 @@ class LoginUseCase:
                 telefone_confirmado=user.telefone_confirmado,
                 plano_tipo=user.plano.tipo.value if hasattr(user.plano.tipo, 'value') else user.plano.tipo,
                 plano_max_bots=user.plano.max_bots,
+                role=getattr(user, 'role', 'user'),
                 criado_em=user.criado_em.isoformat() if user.criado_em else "",
             )
         )

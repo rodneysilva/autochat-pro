@@ -45,6 +45,7 @@ export function useAuthInit(): { initialized: boolean } {
               nome: me.nome || me.name || user.nome,
               avatar: me.avatar || user.avatar,
               plano: user.plano,
+              role: (me.role as 'admin' | 'user') || 'user',
             },
             token,
           )

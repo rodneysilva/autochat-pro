@@ -136,6 +136,7 @@ class Usuario:
     nome: str = ""
     avatar: Optional[str] = None
     plano: ConfiguracaoPlano = field(default_factory=ConfiguracaoPlano)
+    role: str = "user"
     status: StatusUsuario = StatusUsuario.ATIVO
     criado_em: datetime = field(default_factory=datetime.utcnow)
     atualizado_em: datetime = field(default_factory=datetime.utcnow)

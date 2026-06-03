@@ -39,6 +39,7 @@ export interface LoginResponse extends AuthResponse {
     plano_tipo: string
     plano_max_bots: number
     created_at: string
+    role: string
   }
 }
 
@@ -56,6 +57,7 @@ export interface RegisterResponse {
     plano_tipo: string
     plano_max_bots: number
     created_at: string
+    role: string
   }
 }
 
@@ -112,6 +114,7 @@ export const authService = {
     plano_max_bots: number
     criado_em?: string
     created_at?: string
+    role?: string
   }> {
     const client = getHttpClient()
     return client.get(`${AUTH_PATH}/me`)

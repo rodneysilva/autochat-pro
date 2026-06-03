@@ -93,17 +93,18 @@ class JWTService:
         return encoded
 
     @staticmethod
-    def create_token_pair(subject: str) -> JWTTokenPair:
+    def create_token_pair(subject: str, role: str = "user") -> JWTTokenPair:
         """
         Cria um par de tokens (access + refresh).
 
         Args:
             subject: Identificador do usuário.
+            role: Papel do usuário (admin/user).
 
         Returns:
             Par de tokens.
         """
-        access = JWTService.create_access_token(subject)
+        access = JWTService.create_access_token(subject, extra_claims={"role": role})
         refresh = JWTService.create_refresh_token(subject)
         return JWTTokenPair(access, refresh)
 

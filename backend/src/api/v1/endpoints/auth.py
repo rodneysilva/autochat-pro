@@ -265,6 +265,7 @@ async def get_current_user_endpoint(
         telefone_confirmado=current_user.telefone_confirmado,
         plano_tipo=current_user.plano.tipo.value if hasattr(current_user.plano.tipo, 'value') else current_user.plano.tipo,
         plano_max_bots=current_user.plano.max_bots,
+        role=getattr(current_user, 'role', 'user'),
         criado_em=current_user.criado_em.isoformat() if current_user.criado_em else "",
     )
 

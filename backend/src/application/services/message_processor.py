@@ -570,6 +570,47 @@ class MessageProcessor:
             await self._send_telegram_response(bot_token, chat_id, response_text)
             await self._update_bot_stats(bot)
 
+            # Salvar conversa e mensagem no MongoDB
+            try:
+                from src.infrastructure.database.mongodb import MongoDB
+                from datetime import datetime, timezone
+                db = MongoDB.get_database()
+                now = datetime.now(timezone.utc)
+                # Buscar ou criar conversa
+                conv = await db.conversations.find_one({"bot_id": str(bot.id), "customer_phone": chat_id})
+                if not conv:
+                    conv_result = await db.conversations.insert_one({
+                        "bot_id": str(bot.id),
+                        "customer_phone": chat_id,
+                        "customer_name": sender_name,
+                        "customer_platform": "telegram",
+                        "status": "active",
+                        "criado_em": now,
+                        "atualizado_em": now,
+                    })
+                    conv_id = str(conv_result.inserted_id)
+                else:
+                    conv_id = str(conv["_id"])
+                    await db.conversations.update_one({"_id": conv["_id"]}, {"$set": {"atualizado_em": now}})
+                # Salvar mensagem do cliente
+                await db.messages.insert_one({
+                    "conversation_id": conv_id,
+                    "bot_id": str(bot.id),
+                    "sender": "customer",
+                    "content": message_text,
+                    "timestamp": now,
+                })
+                # Salvar resposta do bot
+                await db.messages.insert_one({
+                    "conversation_id": conv_id,
+                    "bot_id": str(bot.id),
+                    "sender": "bot",
+                    "content": response_text,
+                    "timestamp": now,
+                })
+            except Exception as save_err:
+                logger.warning(f"Erro ao salvar conversa Telegram (não crítico): {save_err}")
+
             # WS events
             await self._emit_ws_events(bot, chat_id, message_text, "sent", sender_name)
 

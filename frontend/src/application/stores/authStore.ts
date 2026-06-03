@@ -6,6 +6,7 @@ export interface User {
   email: string
   nome: string
   avatar?: string
+  role: 'admin' | 'user'
   plano: {
     tipo: 'free' | 'basic' | 'pro'
     maxBots: number

@@ -4,6 +4,7 @@ import { botsService } from '../../infrastructure/api/bots.service'
 import { whatsappService, ConnectionStatus } from '../../infrastructure/api/whatsapp.service'
 import { templateService } from '../../infrastructure/api/templates.service'
 import { useBotsStore } from '../../application/stores/botsStore'
+import { useAuthStore } from '../../application/stores/authStore'
 
 type Tab = 'mensagens' | 'horario' | 'whatsapp' | 'ia' | 'telegram_config'
 
@@ -11,6 +12,8 @@ export default function BotConfigPage() {
   const { botId } = useParams<{ botId: string }>()
   const navigate = useNavigate()
   const { bots, fetchBots, updateBot } = useBotsStore()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
   const [activeTab, setActiveTab] = useState<Tab>('mensagens')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -1026,7 +1029,8 @@ export default function BotConfigPage() {
 
             {llmAtivado && (
               <>
-                {/* Provider e Modelo */}
+                {/* Provider e Modelo — Somente admin */}
+                {isAdmin && <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="llmProvider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1180,6 +1184,7 @@ export default function BotConfigPage() {
                     Estimativa: ~{Math.round(llmMaxContextMessages * 30)} tokens (~{Math.round(llmMaxContextMessages * 120)} chars).
                   </p>
                 </div>
+                </>}{/* fim isAdmin */}
 
                 {/* System Prompt */}
                 <div>

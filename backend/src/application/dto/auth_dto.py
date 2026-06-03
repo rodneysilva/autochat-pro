@@ -105,6 +105,7 @@ class UserResponse(BaseModel):
 
     plano_tipo: str = Field(..., description="Tipo do plano")
     plano_max_bots: int = Field(..., description="Máximo de bots permitidos")
+    role: str = Field(default="user", description="Papel do usuário (admin/user)")
 
     criado_em: str = Field(..., description="Data de criação")
 
