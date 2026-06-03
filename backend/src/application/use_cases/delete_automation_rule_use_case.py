@@ -2,8 +2,6 @@
 Caso de uso para deleção de regra de automação.
 """
 
-from uuid import UUID
-
 from src.domain.repositories.automation_rule_repository import AutomationRuleRepository
 from src.shared.exceptions import EntityNotFoundException
 from src.shared.utils.logger import get_logger
@@ -19,10 +17,10 @@ class DeleteAutomationRuleUseCase:
 
     async def execute(self, rule_id: str, usuario_id: str):
         """Deleta uma regra de automação."""
-        rule = await self._repo.buscar_por_id(UUID(rule_id))
+        rule = await self._repo.buscar_por_id(rule_id)
         if not rule:
             raise EntityNotFoundException("Regra não encontrada", code="RULE_NOT_FOUND")
 
-        await self._repo.deletar(UUID(rule_id))
+        await self._repo.deletar(rule_id)
         logger.info(f"Regra de automação deletada: {rule.nome} ({rule_id})")
         return {"mensagem": f"Regra '{rule.nome}' deletada com sucesso"}

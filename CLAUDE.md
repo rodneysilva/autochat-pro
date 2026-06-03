@@ -137,6 +137,13 @@ O handler global em `main.py` formata automaticamente quando se usa `BaseAppExce
 16. **Sem feedback de expiração**: usuário não sabia quanto tempo tinha → adicionado timer visual de 3 min com contagem regressiva (fica vermelho nos últimos 30s)
 17. **pairingCode null sem erro**: backend retornava null silenciosamente → agora retorna erro 503 com mensagem clara
 
+### Sessão 2026-06-03 #4 — Auditoria P0
+18. **Senha do admin não funciona**: seed pula recriação se usuário existe, hash ficava desatualizado → seed agora sempre atualiza password_hash + role do admin
+19. **Registro falha com duplicate key `phone:null`**: `_user_to_document` incluía `phone: null` explicitamente, sparse index só permite um null → campos opcionais (phone, avatar) agora só incluídos quando têm valor; index recriado com cleanup
+20. **Automações UUID vs ObjectId**: `bot_id` definido como `UUID` no domínio mas bots usam `ObjectId` (24 hex chars) → mudado para `str` em toda a cadeia: entidade, interface, use cases (create, list, update, delete, toggle) e repositório
+21. **Role "admin" não mapeada**: `_document_to_user` e `_user_to_document` ignoravam campo `role` → mapeamento adicionado, JWT agora contém role correto
+22. **Segredos hardcodados no docker-compose**: MongoDB pass, Evolution API key e PostgreSQL credenciais → substituídos por `${VAR:-default}` com `.env` na raiz; `backend/.env` removido do git tracking
+
 ## Progresso
 
 - ✅ FASE 1-2: Infraestrutura e autenticação

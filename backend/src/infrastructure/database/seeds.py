@@ -141,7 +141,9 @@ async def seed_system_settings(database: AsyncIOMotorDatabase) -> None:
 
 async def seed_test_user(database: AsyncIOMotorDatabase) -> None:
     """
-    Cria um usuário de teste para desenvolvimento.
+    Cria/atualiza um usuário de teste para desenvolvimento.
+
+    Sempre atualiza o hash da senha para garantir compatibilidade.
 
     Args:
         database: Instância do banco de dados MongoDB.
@@ -149,12 +151,6 @@ async def seed_test_user(database: AsyncIOMotorDatabase) -> None:
     users_collection = database.users
 
     test_email = "admin@autochat.com"
-
-    # Verificar se já existe
-    existing = await users_collection.find_one({"email": test_email})
-    if existing:
-        logger.info("Usuário de teste já existe, pulando...")
-        return
 
     from src.application.services.password_service import PasswordService
 
@@ -164,7 +160,6 @@ async def seed_test_user(database: AsyncIOMotorDatabase) -> None:
         "email": test_email,
         "password_hash": password_hash,
         "name": "Admin Teste",
-        "phone": None,
         "avatar": None,
         "email_confirmed": True,
         "phone_confirmed": False,
@@ -180,13 +175,22 @@ async def seed_test_user(database: AsyncIOMotorDatabase) -> None:
         },
         "status": "active",
         "role": "admin",
-        "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
-        "last_login": None,
     }
 
-    await users_collection.insert_one(test_user)
-    logger.info("Usuário de teste criado: admin@autochat.com / Admin@123")
+    # Verificar se já existe — se sim, atualiza o hash; se não, cria
+    existing = await users_collection.find_one({"email": test_email})
+    if existing:
+        await users_collection.update_one(
+            {"email": test_email},
+            {"$set": {"password_hash": password_hash, "role": "admin", "updated_at": datetime.utcnow()}}
+        )
+        logger.info("Usuário de teste atualizado: admin@autochat.com")
+    else:
+        test_user["created_at"] = datetime.utcnow()
+        test_user["last_login"] = None
+        await users_collection.insert_one(test_user)
+        logger.info("Usuário de teste criado: admin@autochat.com / Admin@123")
 
 
 async def seed_all(database: AsyncIOMotorDatabase) -> None:

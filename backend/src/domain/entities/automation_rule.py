@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 
 class TipoCondicao(str, Enum):
@@ -162,8 +162,8 @@ class RegraAutomacao:
         atualizado_em: Data da última atualização
     """
 
-    id: UUID = field(default_factory=uuid4)
-    bot_id: UUID = field(default_factory=uuid4)
+    id: str = field(default_factory=lambda: str(uuid4()))
+    bot_id: str = ""
     nome: str = ""
     descricao: str = ""
     ativado: bool = True
@@ -178,8 +178,8 @@ class RegraAutomacao:
     atualizado_em: datetime = field(default_factory=datetime.utcnow)
 
     # Estado em memória para cooldown por conversa
-    _cooldown_por_conversa: Dict[UUID, datetime] = field(default_factory=dict)
-    _execucoes_por_conversa: Dict[UUID, int] = field(default_factory=dict)
+    _cooldown_por_conversa: Dict[str, datetime] = field(default_factory=dict)
+    _execucoes_por_conversa: Dict[str, int] = field(default_factory=dict)
 
     # ========================================
     # Regras de negócio
@@ -189,7 +189,7 @@ class RegraAutomacao:
         """Verifica se a regra está ativada."""
         return self.ativado
 
-    def pode_executar(self, conversa_id: UUID) -> bool:
+    def pode_executar(self, conversa_id: str) -> bool:
         """
         Verifica se a regra pode ser executada para uma conversa.
 
@@ -232,7 +232,7 @@ class RegraAutomacao:
         # OR entre condições
         return any(condicao.avaliar(contexto) for condicao in self.condicoes)
 
-    def executar(self, conversa_id: UUID) -> None:
+    def executar(self, conversa_id: str) -> None:
         """
         Registra a execução da regra.
 
@@ -251,18 +251,18 @@ class RegraAutomacao:
 
         self.atualizado_em = datetime.utcnow()
 
-    def _em_cooldown(self, conversa_id: UUID) -> bool:
+    def _em_cooldown(self, conversa_id: str) -> bool:
         """Verifica se está em cooldown para a conversa."""
         if conversa_id not in self._cooldown_por_conversa:
             return False
 
         return datetime.utcnow() < self._cooldown_por_conversa[conversa_id]
 
-    def limpar_cooldown(self, conversa_id: UUID) -> None:
+    def limpar_cooldown(self, conversa_id: str) -> None:
         """Limpa o cooldown para uma conversa."""
         self._cooldown_por_conversa.pop(conversa_id, None)
 
-    def resetar_execucoes_conversa(self, conversa_id: UUID) -> None:
+    def resetar_execucoes_conversa(self, conversa_id: str) -> None:
         """Reseta o contador de execuções por conversa."""
         self._execucoes_por_conversa.pop(conversa_id, None)
 

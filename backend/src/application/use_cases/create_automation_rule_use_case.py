@@ -2,8 +2,6 @@
 Caso de uso para criação de regra de automação.
 """
 
-from uuid import UUID
-
 from src.domain.entities.automation_rule import (
     RegraAutomacao, Condicao, Acao,
     TipoCondicao, OperadorCondicao, TipoAcao,
@@ -24,7 +22,7 @@ class CreateAutomationRuleUseCase:
 
     async def execute(self, request: CriarRegraRequest, usuario_id: str):
         """Cria uma nova regra de automação."""
-        bot_id = UUID(request.bot_id)
+        bot_id = request.bot_id
 
         # Verificar se já existe regra com mesmo nome no bot
         existing = await self._repo.buscar_por_nome(bot_id, request.nome)

@@ -33,6 +33,8 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
+backend/.env
+.env
 .env.local
 .env.*.local
 

@@ -4,7 +4,6 @@ Interface do repositório de regras de automação.
 
 from abc import abstractmethod
 from typing import List, Optional
-from uuid import UUID
 
 from src.domain.entities.automation_rule import RegraAutomacao
 from src.domain.repositories.base import Repository
@@ -20,7 +19,7 @@ class AutomationRuleRepository(Repository[RegraAutomacao]):
     @abstractmethod
     async def listar_por_bot(
         self,
-        bot_id: UUID,
+        bot_id: str,
         apenas_ativas: bool = False,
         limite: int = 100,
         pulo: int = 0,
@@ -29,7 +28,7 @@ class AutomationRuleRepository(Repository[RegraAutomacao]):
         Lista regras de um bot.
 
         Args:
-            bot_id: ID do bot
+            bot_id: ID do bot (ObjectId string)
             apenas_ativas: Se True, retorna apenas regras ativas
             limite: Quantidade máxima de itens
             pulo: Quantidade de itens a pular
@@ -40,12 +39,12 @@ class AutomationRuleRepository(Repository[RegraAutomacao]):
         pass
 
     @abstractmethod
-    async def buscar_ativas_por_bot(self, bot_id: UUID) -> List[RegraAutomacao]:
+    async def buscar_ativas_por_bot(self, bot_id: str) -> List[RegraAutomacao]:
         """
         Busca todas as regras ativas de um bot.
 
         Args:
-            bot_id: ID do bot
+            bot_id: ID do bot (ObjectId string)
 
         Returns:
             Lista de regras ativas ordenadas por prioridade
@@ -53,12 +52,12 @@ class AutomationRuleRepository(Repository[RegraAutomacao]):
         pass
 
     @abstractmethod
-    async def contar_por_bot(self, bot_id: UUID, apenas_ativas: bool = False) -> int:
+    async def contar_por_bot(self, bot_id: str, apenas_ativas: bool = False) -> int:
         """
         Conta regras de um bot.
 
         Args:
-            bot_id: ID do bot
+            bot_id: ID do bot (ObjectId string)
             apenas_ativas: Se True, conta apenas regras ativas
 
         Returns:
@@ -69,7 +68,7 @@ class AutomationRuleRepository(Repository[RegraAutomacao]):
     @abstractmethod
     async def atualizar_status_ativacao(
         self,
-        regra_id: UUID,
+        regra_id: str,
         ativada: bool,
     ) -> Optional[RegraAutomacao]:
         """
@@ -87,7 +86,7 @@ class AutomationRuleRepository(Repository[RegraAutomacao]):
     @abstractmethod
     async def buscar_por_prioridade(
         self,
-        bot_id: UUID,
+        bot_id: str,
         prioridade_minima: int,
         prioridade_maxima: int,
     ) -> List[RegraAutomacao]:
@@ -95,7 +94,7 @@ class AutomationRuleRepository(Repository[RegraAutomacao]):
         Busca regras por faixa de prioridade.
 
         Args:
-            bot_id: ID do bot
+            bot_id: ID do bot (ObjectId string)
             prioridade_minima: Prioridade mínima
             prioridade_maxima: Prioridade máxima
 

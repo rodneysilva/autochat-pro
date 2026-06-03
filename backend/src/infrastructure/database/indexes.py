@@ -14,6 +14,13 @@ logger = get_logger(__name__)
 async def create_user_indexes(database: AsyncIOMotorDatabase) -> None:
     """Cria índices da coleção users."""
     await database.users.create_index("email", unique=True, sparse=True)
+    # Recria índice de phone: drop primeiro (pode estar corrompido com nulls)
+    try:
+        await database.users.drop_index("phone_1")
+    except Exception:
+        pass
+    # Limpa phone: null existentes antes de recriar índice unique sparse
+    await database.users.update_many({"phone": None}, {"$unset": {"phone": ""}})
     await database.users.create_index("phone", unique=True, sparse=True)
     await database.users.create_index("status")
     await database.users.create_index("plan.type")

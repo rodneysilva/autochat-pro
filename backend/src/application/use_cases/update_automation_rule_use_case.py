@@ -2,8 +2,6 @@
 Caso de uso para atualização de regra de automação.
 """
 
-from uuid import UUID
-
 from src.domain.entities.automation_rule import (
     Condicao, Acao,
     TipoCondicao, OperadorCondicao, TipoAcao,
@@ -24,7 +22,7 @@ class UpdateAutomationRuleUseCase:
 
     async def execute(self, rule_id: str, request: AtualizarRegraRequest, usuario_id: str):
         """Atualiza uma regra de automação."""
-        rule = await self._repo.buscar_por_id(UUID(rule_id))
+        rule = await self._repo.buscar_por_id(rule_id)
         if not rule:
             raise EntityNotFoundException("Regra não encontrada", code="RULE_NOT_FOUND")
 

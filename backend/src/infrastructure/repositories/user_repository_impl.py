@@ -61,6 +61,7 @@ class MongoUserRepository(UserRepository):
             nome=doc.get("name", ""),
             avatar=doc.get("avatar"),
             plano=plan,
+            role=doc.get("role", "user"),
             status=StatusUsuario(doc.get("status", "active")),
             criado_em=doc.get("created_at"),
             atualizado_em=doc.get("updated_at"),
@@ -71,12 +72,11 @@ class MongoUserRepository(UserRepository):
         """Converte a entidade Usuario para documento do MongoDB."""
         doc = {
             "email": user.email,
-            "phone": user.telefone,
             "email_confirmed": user.email_confirmado,
             "phone_confirmed": user.telefone_confirmado,
             "password_hash": user.senha_hash,
             "name": user.nome,
-            "avatar": user.avatar,
+            "role": user.role,
             "status": user.status.value if hasattr(user.status, 'value') else user.status,
             "plan": {
                 "type": user.plano.tipo.value if hasattr(user.plano.tipo, 'value') else user.plano.tipo,
@@ -92,6 +92,12 @@ class MongoUserRepository(UserRepository):
             },
             "updated_at": datetime.now(timezone.utc),
         }
+
+        # Incluir campos opcionais apenas quando têm valor (evita duplicate key com sparse index)
+        if user.telefone is not None:
+            doc["phone"] = user.telefone
+        if user.avatar is not None:
+            doc["avatar"] = user.avatar
 
         # Se já tem ID, é uma atualização
         if user.id:

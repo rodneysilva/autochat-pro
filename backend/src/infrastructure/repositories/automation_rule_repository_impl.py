@@ -4,7 +4,6 @@ Implementação do repositório de regras de automação com MongoDB.
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 from bson import ObjectId
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -151,7 +150,7 @@ class MongoAutomationRuleRepository(AutomationRuleRepository):
             return await self.atualizar(entidade)
         return await self.criar(entidade)
 
-    async def buscar_por_id(self, id: UUID) -> Optional[RegraAutomacao]:
+    async def buscar_por_id(self, id: str) -> Optional[RegraAutomacao]:
         """Busca uma entidade por ID."""
         try:
             doc = await self._collection.find_one({"_id": _to_object_id(id)})
@@ -171,7 +170,7 @@ class MongoAutomationRuleRepository(AutomationRuleRepository):
         docs = await cursor.to_list(length=limite)
         return [self._document_to_entity(d) for d in docs if self._document_to_entity(d)]
 
-    async def deletar(self, id: UUID) -> bool:
+    async def deletar(self, id: str) -> bool:
         """Deleta uma entidade por ID."""
         result = await self._collection.delete_one({"_id": _to_object_id(id)})
         return result.deleted_count > 0
@@ -210,7 +209,7 @@ class MongoAutomationRuleRepository(AutomationRuleRepository):
         doc = await self._collection.find_one({"_id": oid})
         return self._document_to_entity(doc)
 
-    async def buscar_por_nome(self, bot_id: UUID, nome: str) -> Optional[RegraAutomacao]:
+    async def buscar_por_nome(self, bot_id: str, nome: str) -> Optional[RegraAutomacao]:
         """Busca regra por nome dentro de um bot."""
         doc = await self._collection.find_one({
             "bot_id": _to_object_id(bot_id),
@@ -220,7 +219,7 @@ class MongoAutomationRuleRepository(AutomationRuleRepository):
 
     async def listar_por_bot(
         self,
-        bot_id: UUID,
+        bot_id: str,
         apenas_ativas: bool = False,
         limite: int = 100,
         pulo: int = 0,
@@ -233,14 +232,14 @@ class MongoAutomationRuleRepository(AutomationRuleRepository):
         docs = await cursor.to_list(length=limite)
         return [self._document_to_entity(d) for d in docs if self._document_to_entity(d)]
 
-    async def buscar_ativas_por_bot(self, bot_id: UUID) -> List[RegraAutomacao]:
+    async def buscar_ativas_por_bot(self, bot_id: str) -> List[RegraAutomacao]:
         """Busca todas as regras ativas de um bot."""
         query = {"bot_id": _to_object_id(bot_id), "ativado": True}
         cursor = self._collection.find(query).sort("prioridade", -1)
         docs = await cursor.to_list(length=1000)
         return [self._document_to_entity(d) for d in docs if self._document_to_entity(d)]
 
-    async def contar_por_bot(self, bot_id: UUID, apenas_ativas: bool = False) -> int:
+    async def contar_por_bot(self, bot_id: str, apenas_ativas: bool = False) -> int:
         """Conta regras de um bot."""
         query: Dict[str, Any] = {"bot_id": _to_object_id(bot_id)}
         if apenas_ativas:
@@ -249,7 +248,7 @@ class MongoAutomationRuleRepository(AutomationRuleRepository):
 
     async def atualizar_status_ativacao(
         self,
-        regra_id: UUID,
+        regra_id: str,
         ativada: bool,
     ) -> Optional[RegraAutomacao]:
         """Atualiza o status de ativação de uma regra."""
@@ -264,7 +263,7 @@ class MongoAutomationRuleRepository(AutomationRuleRepository):
 
     async def buscar_por_prioridade(
         self,
-        bot_id: UUID,
+        bot_id: str,
         prioridade_minima: int,
         prioridade_maxima: int,
     ) -> List[RegraAutomacao]:

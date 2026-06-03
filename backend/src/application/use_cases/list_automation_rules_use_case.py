@@ -17,12 +17,9 @@ class ListAutomationRulesUseCase:
 
     async def execute(self, bot_id: str, pagina: int = 1, tamanho_pagina: int = 20):
         """Lista regras de automação de um bot."""
-        from uuid import UUID
-        bot_uuid = UUID(bot_id)
-
         pulo = (pagina - 1) * tamanho_pagina
-        rules = await self._repo.listar_por_bot(bot_uuid, limite=tamanho_pagina, pulo=pulo)
-        total = await self._repo.contar_por_bot(bot_uuid)
+        rules = await self._repo.listar_por_bot(bot_id, limite=tamanho_pagina, pulo=pulo)
+        total = await self._repo.contar_por_bot(bot_id)
 
         return ListaRegrasResponse(
             data=[regra_to_response(r) for r in rules],
