@@ -38,10 +38,11 @@ class CreateBotUseCase:
             )
 
         # Criar entidade
+        initial_status = StatusBot.ATIVO if request.tipo.lower() == 'telegram' else StatusBot.CONECTANDO
         bot = Bot(
             nome=request.nome,
             tipo=TipoBot(request.tipo.lower()),
-            status=StatusBot.CONECTANDO,
+            status=initial_status,
             mensagem_boas_vindas=request.mensagem_boas_vindas or "Olá! Sou seu assistente virtual. Como posso ajudar?",
             mensagem_despedida=request.mensagem_despedida or "Obrigado pelo contato!",
         )

@@ -109,8 +109,7 @@ async def get_rule(
     """Busca uma regra por ID."""
     try:
         repo = _get_repo()
-        from uuid import UUID
-        rule = await repo.buscar_por_id(UUID(rule_id))
+        rule = await repo.buscar_por_id(rule_id)
         if not rule:
             raise HTTPException(
                 status_code=404,

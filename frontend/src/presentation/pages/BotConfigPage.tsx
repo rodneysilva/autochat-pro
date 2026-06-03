@@ -4,7 +4,7 @@ import { botsService } from '../../infrastructure/api/bots.service'
 import { whatsappService, ConnectionStatus } from '../../infrastructure/api/whatsapp.service'
 import { useBotsStore } from '../../application/stores/botsStore'
 
-type Tab = 'mensagens' | 'horario' | 'whatsapp' | 'ia'
+type Tab = 'mensagens' | 'horario' | 'whatsapp' | 'ia' | 'telegram_config'
 
 export default function BotConfigPage() {
   const { botId } = useParams<{ botId: string }>()
@@ -246,11 +246,15 @@ export default function BotConfigPage() {
     }
   }
 
+  const isTelegram = bot?.tipo === 'telegram'
+
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'mensagens', label: 'Mensagens', icon: '💬' },
     { key: 'horario', label: 'Horário', icon: '🕐' },
-    { key: 'whatsapp', label: 'WhatsApp', icon: '📱' },
     { key: 'ia', label: 'IA (LLM)', icon: '⚡' },
+    ...(isTelegram
+      ? [{ key: 'telegram_config' as Tab, label: 'Telegram', icon: '✈️' }]
+      : [{ key: 'whatsapp' as Tab, label: 'WhatsApp', icon: '📱' }]),
   ]
 
   const statusColor: Record<string, string> = {
@@ -1115,6 +1119,70 @@ export default function BotConfigPage() {
               <li>• Defina o <strong>tom</strong> (formal, informal, amigável, técnico)</li>
               <li>• Mantenha o prompt <strong>atualizado</strong> com informações recentes</li>
             </ul>
+          </div>
+        </div>
+      )}
+      {/* Tab: Telegram */}
+      {activeTab === 'telegram_config' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 lg:p-6 space-y-6">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Configuração do Bot Telegram</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Informações e status do bot Telegram.
+              </p>
+            </div>
+
+            {/* Status badge */}
+            {bot && (
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${statusColor[bot.status] || ''}`}>
+                  {statusLabel[bot.status] || bot.status}
+                </span>
+              </div>
+            )}
+
+            {/* Info cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Username */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Username</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {(bot as any)?.telegram_config?.bot_username || bot?.nome || '—'}
+                </p>
+              </div>
+
+              {/* Webhook URL */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Webhook URL</p>
+                <p className="text-sm font-mono text-gray-900 dark:text-white break-all">
+                  {(bot as any)?.telegram_config?.webhook_url || 'Não configurado'}
+                </p>
+              </div>
+            </div>
+
+            {/* Webhook status */}
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium text-green-700 dark:text-green-400">Webhook Ativo</span>
+              </div>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                Mensagens recebidas via Telegram serão processadas automaticamente.
+              </p>
+            </div>
+
+            {/* Dicas */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+              <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">💡 Dicas para o bot Telegram</h4>
+              <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1.5">
+                <li>• Configure o <strong>Prompt</strong> na aba IA para definir como o bot responde</li>
+                <li>• Use a aba <strong>Mensagens</strong> para saudação e resposta padrão</li>
+                <li>• Configure <strong>Horário</strong> de funcionamento para o bot responder</li>
+                <li>• Crie <strong>Automações</strong> na aba Mensagens para respostas automáticas por palavras-chave</li>
+                <li>• Para trocar o token, vá em "Adicionar Bot" e crie um novo</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
