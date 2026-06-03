@@ -59,27 +59,6 @@ async def create_message_indexes(database: AsyncIOMotorDatabase) -> None:
     logger.info("Índices de messages criados")
 
 
-async def create_analytics_indexes(database: AsyncIOMotorDatabase) -> None:
-    """Cria índices da coleção analytics."""
-    await database.analytics.create_index("bot_id")
-    await database.analytics.create_index("metric_type")
-    await database.analytics.create_index("period")
-    await database.analytics.create_index("timestamp")
-    await database.analytics.create_index([("bot_id", 1), ("metric_type", 1)])
-    await database.analytics.create_index([("bot_id", 1), ("timestamp", -1)])
-    await database.analytics.create_index([("bot_id", 1), ("metric_type", 1), ("timestamp", -1)])
-    logger.info("Índices de analytics criados")
-
-
-async def create_daily_stats_indexes(database: AsyncIOMotorDatabase) -> None:
-    """Cria índices da coleção daily_stats."""
-    await database.daily_stats.create_index("bot_id")
-    await database.daily_stats.create_index("date")
-    await database.daily_stats.create_index([("bot_id", 1), ("date", -1)])
-    await database.daily_stats.create_index([("bot_id", 1), ("date", 1)])
-    logger.info("Índices de daily_stats criados")
-
-
 async def create_automation_rule_indexes(database: AsyncIOMotorDatabase) -> None:
     """Cria índices da coleção automation_rules."""
     await database.automation_rules.create_index("bot_id")
@@ -114,8 +93,6 @@ async def create_all_indexes(database: AsyncIOMotorDatabase) -> None:
     await create_bot_indexes(database)
     await create_conversation_indexes(database)
     await create_message_indexes(database)
-    await create_analytics_indexes(database)
-    await create_daily_stats_indexes(database)
     await create_automation_rule_indexes(database)
     await create_contact_indexes(database)
 
@@ -136,9 +113,8 @@ async def drop_all_indexes(database: AsyncIOMotorDatabase) -> None:
         "bots",
         "conversations",
         "messages",
-        "analytics",
-        "daily_stats",
         "automation_rules",
+        "contacts",
     ]
 
     for collection_name in collections:

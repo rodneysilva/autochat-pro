@@ -5,7 +5,7 @@ Define todos os endpoints relacionados a registro, login,
 refresh de token e confirmação de conta.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
 
@@ -16,6 +16,7 @@ from src.application.use_cases.confirm_email_use_case import ConfirmEmailUseCase
 from src.application.use_cases.password_reset_use_case import PasswordResetUseCase
 from src.application.use_cases.confirm_phone_use_case import ConfirmPhoneUseCase
 from src.api.middleware.auth import get_current_user
+from src.api.middleware.rate_limit import rate_limit_auth
 from src.application.dto.auth_dto import (
     RegisterRequest,
     RegisterResponse,
@@ -127,7 +128,8 @@ async def get_confirm_email_use_case() -> ConfirmEmailUseCase:
     description="Cria uma nova conta de usuário.",
 )
 async def register(
-    request: RegisterRequest,
+    request: Request,
+    body: RegisterRequest,
     use_case: RegisterUseCase = Depends(get_register_use_case),
     confirm_use_case: ConfirmEmailUseCase = Depends(get_confirm_email_use_case),
 ):
@@ -137,8 +139,13 @@ async def register(
     Cria um novo usuário com os dados fornecidos.
     Um email de confirmação será enviado para o usuário.
     """
+    # Rate limiting: 10 registros/min por IP
+    is_limited, rl_response = await rate_limit_auth(request, max_requests=10)
+    if is_limited:
+        return rl_response
+
     try:
-        result = await use_case.execute(request)
+        result = await use_case.execute(body)
 
         # Gerar token de confirmação e enviar email
         try:
@@ -175,7 +182,8 @@ async def register(
     description="Autentica um usuário e retorna tokens JWT.",
 )
 async def login(
-    request: LoginRequest,
+    request: Request,
+    body: LoginRequest,
     use_case: LoginUseCase = Depends(get_login_use_case),
 ):
     """
@@ -184,8 +192,13 @@ async def login(
     Autentica o usuário com email e senha,
     retornando um par de tokens JWT (access + refresh).
     """
+    # Rate limiting: 10 tentativas/min por IP
+    is_limited, rl_response = await rate_limit_auth(request, max_requests=10)
+    if is_limited:
+        return rl_response
+
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(body)
     except BaseAppException:
         raise
     except Exception as e:
@@ -203,7 +216,8 @@ async def login(
     description="Renova o token de acesso usando o token de refresh.",
 )
 async def refresh_token(
-    request: RefreshTokenRequest,
+    request: Request,
+    body: RefreshTokenRequest,
     use_case: RefreshTokenUseCase = Depends(get_refresh_use_case),
 ):
     """
@@ -211,8 +225,13 @@ async def refresh_token(
 
     Renova o token de acesso utilizando um token de refresh válido.
     """
+    # Rate limiting: 30 refresh/min por IP
+    is_limited, rl_response = await rate_limit_auth(request, max_requests=30)
+    if is_limited:
+        return rl_response
+
     try:
-        return await use_case.execute(request.refresh_token)
+        return await use_case.execute(body.refresh_token)
     except BaseAppException:
         raise
     except Exception as e:

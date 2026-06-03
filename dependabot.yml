@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Backend Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "backend"
+
+  # Frontend Node dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"

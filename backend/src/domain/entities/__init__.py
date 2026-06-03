@@ -6,7 +6,6 @@ from src.domain.entities.user import Usuario, ConfiguracaoPlano, TipoPlano, Stat
 from src.domain.entities.bot import Bot, TipoBot, StatusBot
 from src.domain.entities.conversation import Conversa, StatusConversa, Mensagem, PapelMensagem, TipoMensagem
 from src.domain.entities.automation_rule import RegraAutomacao, TipoCondicao, OperadorCondicao, TipoAcao, Condicao, Acao
-from src.domain.entities.analytics import Analytics, DailyStats, MetricType, PeriodType
 
 __all__ = [
     "Usuario",
@@ -27,8 +26,4 @@ __all__ = [
     "TipoAcao",
     "Condicao",
     "Acao",
-    "Analytics",
-    "DailyStats",
-    "MetricType",
-    "PeriodType",
 ]

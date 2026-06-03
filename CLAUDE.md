@@ -144,6 +144,16 @@ O handler global em `main.py` formata automaticamente quando se usa `BaseAppExce
 21. **Role "admin" não mapeada**: `_document_to_user` e `_user_to_document` ignoravam campo `role` → mapeamento adicionado, JWT agora contém role correto
 22. **Segredos hardcodados no docker-compose**: MongoDB pass, Evolution API key e PostgreSQL credenciais → substituídos por `${VAR:-default}` com `.env` na raiz; `backend/.env` removido do git tracking
 
+### Sessão 2026-06-03 #5 — P1 (Segurança + Testes)
+23. **Rate limiting em auth**: middleware `rate_limit.py` com Redis (sliding window) nos endpoints login, register e refresh — 10 req/min login/register, 30/min refresh
+24. **Testes de domínio**: 20 testes pytest cobrindo Usuario, RegraAutomacao, ConfiguracaoPlano (condições, ativação, limites, trial)
+
+### Sessão 2026-06-03 #6 — P2 (Limpeza + Config)
+25. **Código morto removido**: módulo analytics completo (entidade, repo, impl, índices, imports em __init__.py) — nunca foi usado
+26. **ENVIRONMENT sync**: backend/.env corrigido para `production`; FRONTEND_URL atualizado para domínio real; `.env.example` já existente
+27. **Dependabot**: configurado para pip (backend), npm (frontend) e Docker (raiz) — scanner automático de dependências
+28. **Contacts CRUD**: verificado que já está implementado corretamente (repository faz queries reais no MongoDB)
+
 ## Progresso
 
 - ✅ FASE 1-2: Infraestrutura e autenticação
