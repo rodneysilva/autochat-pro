@@ -45,7 +45,7 @@ class ConfiguracaoLLM:
 
     ativado: bool = False
     provider: str = "glm"  # glm, openai, anthropic, ollama
-    modelo: str = "glm-4"
+    modelo: str = "glm-4.7-flash"
     temperatura: float = 0.7
     max_tokens: int = 2048
     system_prompt: str = "Você é um assistente de atendimento útil e cordial."

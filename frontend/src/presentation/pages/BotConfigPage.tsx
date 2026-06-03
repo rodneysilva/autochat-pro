@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { botsService } from '../../infrastructure/api/bots.service'
 import { whatsappService, ConnectionStatus } from '../../infrastructure/api/whatsapp.service'
+import { templateService } from '../../infrastructure/api/templates.service'
 import { useBotsStore } from '../../application/stores/botsStore'
 
 type Tab = 'mensagens' | 'horario' | 'whatsapp' | 'ia' | 'telegram_config'
@@ -54,8 +55,18 @@ export default function BotConfigPage() {
   const [waLoading, setWaLoading] = useState(false)
   const [waSuccess, setWaSuccess] = useState(false)
 
+  // Template states
+  const [templates, setTemplates] = useState<Array<{key: string; nome: string; icon: string; descricao: string}>>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [templateFields, setTemplateFields] = useState<Record<string, string>>({})
+  const [templateFieldsDef, setTemplateFieldsDef] = useState<Array<{chave: string; label: string; placeholder: string}>>([])
+  const [templateLoading, setTemplateLoading] = useState(false)
+  const [templateApplied, setTemplateApplied] = useState(false)
+
   useEffect(() => {
     fetchBots()
+    // Carregar templates
+    templateService.listTemplates().then(setTemplates).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -195,6 +206,29 @@ export default function BotConfigPage() {
     setWaPhone('')
     setWaTimeLeft(180)
     setWaSuccess(false)
+  }
+
+  // Aplicar template ao bot
+  const handleApplyTemplate = async () => {
+    if (!selectedTemplate || !botId) return
+    setTemplateLoading(true)
+    setTemplateApplied(false)
+    try {
+      const result = await templateService.applyToBot(selectedTemplate, botId, templateFields)
+      // Atualizar states com os valores aplicados
+      setLlmAtivado(true)
+      setLlmSystemPrompt(result.llm_config?.system_prompt || '')
+      setMensagemBoasVindas(result.mensagem_boas_vindas || '')
+      setMensagemRespostaPadrao(result.mensagem_resposta_padrao || '')
+      setWhAtivado(result.working_hours?.ativado || false)
+      await fetchBots()
+      setTemplateApplied(true)
+      setTimeout(() => setTemplateApplied(false), 5000)
+    } catch (err: any) {
+      setError(err?.response?.data?.erro?.mensagem || 'Erro ao aplicar template')
+    } finally {
+      setTemplateLoading(false)
+    }
   }
 
   const handleSave = async () => {
@@ -872,6 +906,97 @@ export default function BotConfigPage() {
       {/* Tab: IA (LLM) */}
       {activeTab === 'ia' && (
         <div className="space-y-6">
+          {/* Template de Negócio */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 lg:p-6 space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">🚀 Comece rápido com um Template</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Escolha o tipo do seu negócio e preencha as informações — o resto a gente configura pra você!
+              </p>
+            </div>
+
+            {/* Template grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {templates.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => {
+                    if (selectedTemplate === t.key) {
+                      setSelectedTemplate(null)
+                      setTemplateFields({})
+                      setTemplateFieldsDef([])
+                    } else {
+                      setSelectedTemplate(t.key)
+                      templateService.getTemplate(t.key).then((detail) => {
+                        setTemplateFieldsDef(detail.campos_extras)
+                        // Auto-preencher campos com dados do bot se disponíveis
+                        const initial: Record<string, string> = {}
+                        detail.campos_extras.forEach(c => { initial[c.chave] = '' })
+                        setTemplateFields(initial)
+                      }).catch(() => {})
+                    }
+                    setTemplateApplied(false)
+                  }}
+                  className={`p-3 rounded-lg border-2 text-left transition-all hover:shadow-md ${
+                    selectedTemplate === t.key
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                      : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50'
+                  }`}
+                >
+                  <span className="text-2xl">{t.icon}</span>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">{t.nome}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{t.descricao}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* Campos extras do template */}
+            {selectedTemplate && templateFieldsDef.length > 0 && (
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-4 space-y-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Preencha as informações do seu negócio:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {templateFieldsDef.map((campo) => (
+                    <div key={campo.chave}>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        {campo.label}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={campo.placeholder}
+                        value={templateFields[campo.chave] || ''}
+                        onChange={(e) => setTemplateFields(prev => ({ ...prev, [campo.chave]: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Botão aplicar */}
+            {selectedTemplate && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleApplyTemplate}
+                  disabled={templateLoading}
+                  className="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                >
+                  {templateLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : '✨'}
+                  Aplicar Template
+                </button>
+                {templateApplied && (
+                  <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                    ✅ Template aplicado com sucesso!
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Card principal */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 lg:p-6 space-y-6">
             <div>

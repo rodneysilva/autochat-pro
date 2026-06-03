@@ -244,3 +244,87 @@ async def resume_bot(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"erro": {"codigo": "INTERNAL_ERROR", "mensagem": "Erro ao retomar bot"}},
         )
+
+
+# ========================================
+# Templates de Negócio
+# ========================================
+
+@router.get(
+    "/templates",
+    summary="Listar templates de negócio",
+    description="Retorna todos os templates disponíveis para auto-preenchimento.",
+)
+async def list_templates():
+    """Lista templates de negócio disponíveis."""
+    from src.domain.entities.business_templates import list_templates
+    return {"templates": list_templates()}
+
+
+@router.get(
+    "/templates/{template_key}",
+    summary="Detalhes de template",
+    description="Retorna detalhes de um template incluindo campos para preencher.",
+)
+async def get_template(template_key: str):
+    """Retorna detalhes de um template."""
+    from src.domain.entities.business_templates import get_template
+    template = get_template(template_key)
+    if not template:
+        raise HTTPException(
+            status_code=404,
+            detail={"erro": {"codigo": "TEMPLATE_NOT_FOUND", "mensagem": "Template não encontrado"}},
+        )
+    # Remover system_prompt e textos longos da listagem básica
+    return {
+        "key": template_key,
+        "nome": template["nome"],
+        "icon": template["icon"],
+        "descricao": template["descricao"],
+        "campos_extras": template["campos_extras"],
+        "horario_padrao": template["horario"],
+    }
+
+
+@router.post(
+    "/templates/{template_key}/apply",
+    summary="Aplicar template ao bot",
+    description="Aplica um template a um bot existente, preenchendo prompt e mensagens.",
+)
+async def apply_template_to_bot(
+    template_key: str,
+ bot_id: str,
+ campos: dict = {},
+    current_user=Depends(get_current_user),
+):
+    """Aplica um template a um bot."""
+    from src.domain.entities.business_templates import apply_template
+    from src.infrastructure.database.mongodb import MongoDB
+    from src.infrastructure.repositories.bot_repository_impl import MongoBotRepository
+
+    template = apply_template(template_key, campos)
+    if not template:
+        raise HTTPException(
+            status_code=404,
+            detail={"erro": {"codigo": "TEMPLATE_NOT_FOUND", "mensagem": "Template não encontrado"}},
+        )
+
+    repo = MongoBotRepository(MongoDB.get_database())
+    bot = await repo.buscar_por_id(bot_id)
+    if not bot or str(bot.usuario_id) != str(current_user.id):
+        raise HTTPException(status_code=404, detail={"erro": {"codigo": "NOT_FOUND", "mensagem": "Bot não encontrado"}})
+
+    # Aplicar template ao bot
+    bot.llm_config.system_prompt = template["system_prompt"]
+    bot.mensagem_boas_vindas = template["mensagem_boas_vindas"]
+    bot.mensagem_resposta_padrao = template["mensagem_resposta_padrao"]
+    bot.llm_config.ativado = True
+    bot.working_hours = bot.working_hours or {}
+    bot.working_hours.ativado = template["horario"]["ativado"]
+    bot.working_hours.inicio = template["horario"]["inicio"]
+    bot.working_hours.fim = template["horario"]["fim"]
+    bot.working_hours.timezone = template["horario"]["timezone"]
+
+    updated = await repo.salvar(bot)
+    from src.application.dto.bot_dto import bot_to_response
+    return bot_to_response(updated)
